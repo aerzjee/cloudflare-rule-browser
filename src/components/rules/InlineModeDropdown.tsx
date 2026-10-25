@@ -16,6 +16,7 @@ import type {
   CloudflareAccessRuleMode,
   NormalizedAccessRule,
 } from '../../types/cloudflare'
+import { useTranslation } from '../../i18n/useTranslation'
 import { useUpdateAccessRule } from '../../hooks/useUpdateAccessRule'
 import { cn } from '../../lib/utils'
 
@@ -28,54 +29,42 @@ export interface InlineModeDropdownProps {
   ) => Promise<unknown>
 }
 
-interface ModeConfig {
-  label: string
+interface ModeVisualConfig {
   badgeClass: string
   dotClass: string
   icon: React.ComponentType<{ className?: string }>
-  description: string
 }
 
-const MODE_CONFIGS: Record<CloudflareAccessRuleMode, ModeConfig> = {
+const MODE_VISUALS: Record<CloudflareAccessRuleMode, ModeVisualConfig> = {
   block: {
-    label: 'Block',
     badgeClass:
       'bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/30 hover:border-rose-500/60 shadow-rose-500/10',
     dotClass: 'bg-rose-500',
     icon: Ban,
-    description: 'Całkowita blokada ruchu',
   },
   managed_challenge: {
-    label: 'Managed Challenge',
     badgeClass:
       'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30 hover:border-amber-500/60 shadow-amber-500/10',
     dotClass: 'bg-amber-500',
     icon: ShieldAlert,
-    description: 'Inteligentny test Cloudflare',
   },
   js_challenge: {
-    label: 'JS Challenge',
     badgeClass:
       'bg-orange-500/15 text-orange-600 dark:text-orange-400 border-orange-500/30 hover:border-orange-500/60 shadow-orange-500/10',
     dotClass: 'bg-orange-500',
     icon: Cpu,
-    description: 'Niewidoczny test JavaScript',
   },
   challenge: {
-    label: 'Legacy CAPTCHA',
     badgeClass:
       'bg-yellow-500/15 text-yellow-600 dark:text-yellow-400 border-yellow-500/30 hover:border-yellow-500/60 shadow-yellow-500/10',
     dotClass: 'bg-yellow-500',
     icon: ShieldQuestion,
-    description: 'Interaktywny test CAPTCHA',
   },
   whitelist: {
-    label: 'Allow / Whitelist',
     badgeClass:
       'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:border-emerald-500/60 shadow-emerald-500/10',
     dotClass: 'bg-emerald-500',
     icon: ShieldCheck,
-    description: 'Biała lista (dostęp bez kontroli)',
   },
 }
 
@@ -84,6 +73,7 @@ export const InlineModeDropdown: React.FC<InlineModeDropdownProps> = ({
   className,
   onUpdate,
 }) => {
+  const { t } = useTranslation()
   const { mutateRule } = useUpdateAccessRule()
   const [isOpen, setIsOpen] = useState(false)
   const [isUpdating, setIsUpdating] = useState(false)
@@ -111,17 +101,16 @@ export const InlineModeDropdown: React.FC<InlineModeDropdownProps> = ({
   }, [])
 
   const currentMode = rule.mode.toLowerCase() as CloudflareAccessRuleMode
-  const currentConfig: ModeConfig =
-    MODE_CONFIGS[currentMode] || {
-      label: rule.mode,
-      badgeClass:
-        'bg-slate-500/15 text-slate-700 dark:text-slate-300 border-slate-400/20 hover:border-slate-400/40',
-      dotClass: 'bg-slate-400',
-      icon: Shield,
-      description: 'Tryb niestandardowy',
-    }
+  const visual = MODE_VISUALS[currentMode] || {
+    badgeClass:
+      'bg-slate-500/15 text-slate-700 dark:text-slate-300 border-slate-400/20 hover:border-slate-400/40',
+    dotClass: 'bg-slate-400',
+    icon: Shield,
+  }
 
-  const Icon = currentConfig.icon
+  const modeTranslation = t.modeDropdown.modes[currentMode]
+  const modeLabel = modeTranslation?.label || rule.mode
+  const Icon = visual.icon
 
   // Obliczenie pozycji dla Portal
   const updatePosition = () => {
@@ -232,7 +221,7 @@ export const InlineModeDropdown: React.FC<InlineModeDropdownProps> = ({
         type="button"
         onClick={toggleDropdown}
         disabled={isUpdating}
-        title="Kliknij, aby zmienić akcję reguły (inline edit)"
+        title={t.modeDropdown.clickToChange}
         aria-haspopup="listbox"
         aria-expanded={isOpen}
         animate={
@@ -245,7 +234,7 @@ export const InlineModeDropdown: React.FC<InlineModeDropdownProps> = ({
           'relative group inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold',
           'backdrop-blur-md border shadow-sm transition-colors duration-200 cursor-pointer select-none',
           'active:scale-95 hover:shadow-md',
-          currentConfig.badgeClass,
+          visual.badgeClass,
           isUpdating && 'opacity-80 cursor-wait'
         )}
       >
@@ -271,7 +260,7 @@ export const InlineModeDropdown: React.FC<InlineModeDropdownProps> = ({
               className="inline-flex items-center gap-1.5"
             >
               <Loader2 className="w-3.5 h-3.5 animate-spin text-current" />
-              <span>Zapisywanie...</span>
+              <span>{t.modeDropdown.saving}</span>
             </motion.span>
           ) : showSuccessText ? (
             <motion.span
@@ -283,7 +272,7 @@ export const InlineModeDropdown: React.FC<InlineModeDropdownProps> = ({
               className="inline-flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-bold"
             >
               <Check className="w-3.5 h-3.5 stroke-[3]" />
-              <span>Zapisano</span>
+              <span>{t.modeDropdown.saved}</span>
             </motion.span>
           ) : (
             <motion.span
@@ -295,7 +284,7 @@ export const InlineModeDropdown: React.FC<InlineModeDropdownProps> = ({
               className="inline-flex items-center gap-1.5"
             >
               <Icon className="w-3.5 h-3.5" />
-              <span>{currentConfig.label}</span>
+              <span>{modeLabel}</span>
             </motion.span>
           )}
         </AnimatePresence>
@@ -345,16 +334,17 @@ export const InlineModeDropdown: React.FC<InlineModeDropdownProps> = ({
                 onClick={(e) => e.stopPropagation()}
               >
                 <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 border-b border-slate-200/60 dark:border-white/5">
-                  Wybierz akcję Cloudflare
+                  {t.table.colMode}
                 </div>
 
                 <div className="py-1 space-y-0.5">
                   {(
-                    Object.keys(MODE_CONFIGS) as CloudflareAccessRuleMode[]
+                    Object.keys(MODE_VISUALS) as CloudflareAccessRuleMode[]
                   ).map((modeKey) => {
-                    const opt = MODE_CONFIGS[modeKey]
+                    const opt = MODE_VISUALS[modeKey]
                     const isSelected = modeKey === currentMode
                     const ItemIcon = opt.icon
+                    const trans = t.modeDropdown.modes[modeKey]
 
                     return (
                       <button
@@ -378,10 +368,10 @@ export const InlineModeDropdown: React.FC<InlineModeDropdownProps> = ({
                           <div className="flex flex-col min-w-0">
                             <span className="flex items-center gap-1.5 text-xs font-medium truncate">
                               <ItemIcon className="w-3.5 h-3.5 shrink-0" />
-                              {opt.label}
+                              {trans?.label || modeKey}
                             </span>
                             <span className="text-[10px] text-slate-400 truncate">
-                              {opt.description}
+                              {trans?.desc || ''}
                             </span>
                           </div>
                         </div>

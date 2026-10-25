@@ -1,6 +1,7 @@
 import React from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { CheckSquare, Trash2, X } from 'lucide-react'
+import { useTranslation } from '../../i18n/useTranslation'
 import { GlassButton } from '../ui/GlassButton'
 import { cn } from '../../lib/utils'
 
@@ -17,12 +18,14 @@ export const BulkActionBar: React.FC<BulkActionBarProps> = ({
   onDeleteSelected,
   className,
 }) => {
+  const { t } = useTranslation()
+
   return (
     <AnimatePresence>
       {selectedCount > 0 && (
         <motion.aside
           role="region"
-          aria-label="Pasek akcji masowych"
+          aria-label={t.bulk.regionLabel}
           initial={{ opacity: 0, y: 40, x: '-50%' }}
           animate={{ opacity: 1, y: 0, x: '-50%' }}
           exit={{ opacity: 0, y: 40, x: '-50%' }}
@@ -48,11 +51,7 @@ export const BulkActionBar: React.FC<BulkActionBarProps> = ({
                 {selectedCount}
               </span>
               <span className="text-xs text-slate-500 dark:text-slate-400">
-                {selectedCount === 1
-                  ? 'zaznaczona reguła'
-                  : selectedCount < 5
-                  ? 'zaznaczone reguły'
-                  : 'zaznaczonych reguł'}
+                {t.bulk.ruleSelected(selectedCount)}
               </span>
             </div>
           </div>
@@ -67,8 +66,7 @@ export const BulkActionBar: React.FC<BulkActionBarProps> = ({
               onClick={onClearSelection}
               leftIcon={<X className="w-3.5 h-3.5" />}
             >
-              <span className="hidden sm:inline">Odznacz</span>
-              <span className="sm:hidden">Wyczyść</span>
+              <span>{t.bulk.deselect}</span>
             </GlassButton>
 
             <GlassButton
@@ -78,7 +76,7 @@ export const BulkActionBar: React.FC<BulkActionBarProps> = ({
               leftIcon={<Trash2 className="w-4 h-4" />}
               className="shadow-md shadow-red-500/20"
             >
-              Usuń ({selectedCount})
+              {t.bulk.delete(selectedCount)}
             </GlassButton>
           </div>
         </motion.aside>

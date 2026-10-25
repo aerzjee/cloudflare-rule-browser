@@ -16,6 +16,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useThemeStore } from '../../store/useThemeStore'
 import { useAuthStore, selectIsAuthenticated } from '../../store/useAuthStore'
 import { useSettingsStore } from '../../store/useSettingsStore'
+import { useTranslation } from '../../i18n/useTranslation'
 import { clearAllCachedRules } from '../../utils/rulesCache'
 import { GlassButton } from '../ui/GlassButton'
 import { GlassSwitch } from '../ui/GlassSwitch'
@@ -33,9 +34,11 @@ export interface GlassNavbarProps {
 
 export const GlassNavbar: React.FC<GlassNavbarProps> = ({
   className,
-  title = 'Cloudflare Rule Browser',
+  title,
   subtitle,
 }) => {
+  const { t, language, setLanguage } = useTranslation()
+  const displayTitle = title || t.navbar.title
   const { theme, toggleTheme } = useThemeStore()
   const isDark = theme === 'dark'
 
@@ -104,7 +107,7 @@ export const GlassNavbar: React.FC<GlassNavbarProps> = ({
           <div className="flex flex-col">
             <div className="flex items-center gap-2.5">
               <span className="font-bold text-base sm:text-lg tracking-tight text-slate-900 dark:text-slate-100">
-                {title}
+                {displayTitle}
               </span>
               {subtitle ? (
                 <span className="hidden sm:inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-orange-500/10 text-[#f6821f] border border-orange-500/20">
@@ -114,8 +117,8 @@ export const GlassNavbar: React.FC<GlassNavbarProps> = ({
                 <button
                   type="button"
                   onClick={handleOpenChangelog}
-                  title="Zobacz historię zmian (Changelog)"
-                  aria-label="Otwórz historię zmian aplikacji"
+                  title={t.navbar.changelogTooltip}
+                  aria-label={t.navbar.changelogTooltip}
                   className="hidden sm:inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-mono font-medium backdrop-blur-md bg-white/50 dark:bg-slate-900/40 hover:bg-white/80 dark:hover:bg-slate-800/60 border border-white/60 dark:border-white/10 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white shadow-sm cursor-pointer transition-all active:scale-95"
                 >
                   <GitBranch className="w-3 h-3 text-[#f6821f]" />
@@ -124,7 +127,7 @@ export const GlassNavbar: React.FC<GlassNavbarProps> = ({
               )}
             </div>
             <span className="text-xs text-slate-500 dark:text-slate-400 hidden sm:block">
-              WAF, Page Shield, Firewall &amp; Cache Rules Inspector
+              {t.navbar.subtitle}
             </span>
           </div>
         </div>
@@ -140,28 +143,62 @@ export const GlassNavbar: React.FC<GlassNavbarProps> = ({
             {accountLevelOnly ? (
               <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 text-[11px] font-semibold">
                 <Building2 className="w-3 h-3" />
-                Account Level
+                {t.navbar.accountLevel}
               </span>
             ) : (
               <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-blue-500/10 text-blue-600 dark:text-blue-400 text-[11px] font-semibold">
                 <Globe className="w-3 h-3" />
-                All Zones
+                {t.navbar.allZones}
               </span>
             )}
           </div>
         ) : (
           <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full backdrop-blur-md bg-white/50 dark:bg-slate-900/40 border border-white/60 dark:border-white/10 text-xs text-slate-600 dark:text-slate-400">
             <Activity className="w-3.5 h-3.5 text-emerald-500" />
-            <span className="font-mono text-[11px]">Proxy: /api/cf</span>
+            <span className="font-mono text-[11px]">{t.navbar.proxyStatus}</span>
             <span className="text-slate-300 dark:text-slate-600">•</span>
             <span className="inline-flex items-center gap-1 text-slate-500 dark:text-slate-400">
-              <Shield className="w-3 h-3 text-orange-500" /> Secure CSP
+              <Shield className="w-3 h-3 text-orange-500" /> {t.navbar.secureCsp}
             </span>
           </div>
         )}
 
         {/* Right Controls */}
-        <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
+        <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
+          {/* Language Switcher EN | PL */}
+          <div
+            role="group"
+            aria-label={t.navbar.language}
+            className="flex items-center p-0.5 rounded-xl bg-slate-200/50 dark:bg-slate-800/50 backdrop-blur-md border border-white/40 dark:border-white/10 text-xs font-semibold"
+          >
+            <button
+              type="button"
+              onClick={() => setLanguage('en')}
+              className={cn(
+                'px-2 py-1 rounded-lg transition-all cursor-pointer font-mono text-[11px]',
+                language === 'en'
+                  ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-xs font-bold'
+                  : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
+              )}
+              aria-label="Switch to English"
+            >
+              EN
+            </button>
+            <button
+              type="button"
+              onClick={() => setLanguage('pl')}
+              className={cn(
+                'px-2 py-1 rounded-lg transition-all cursor-pointer font-mono text-[11px]',
+                language === 'pl'
+                  ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-xs font-bold'
+                  : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
+              )}
+              aria-label="Przełącz na język polski"
+            >
+              PL
+            </button>
+          </div>
+
           {/* Settings button with optional auto-refresh indicator badge */}
           <div className="flex items-center gap-1.5">
             <button
@@ -169,10 +206,13 @@ export const GlassNavbar: React.FC<GlassNavbarProps> = ({
               onClick={handleOpenSettings}
               title={
                 autoRefreshInterval > 0
-                  ? `Ustawienia (Auto-Refresh: co ${formatIntervalLabel(autoRefreshInterval)}, tryb: ${autoRefreshMode === 'first_page' ? 'Delta' : 'Pełny'})`
-                  : 'Konfiguracja aplikacji'
+                  ? t.navbar.settingsTooltipWithRefresh(
+                      formatIntervalLabel(autoRefreshInterval),
+                      autoRefreshMode === 'first_page' ? 'Delta' : 'Full'
+                    )
+                  : t.navbar.settingsTooltip
               }
-              aria-label="Otwórz konfigurację aplikacji"
+              aria-label={t.navbar.settingsTooltip}
               className={cn(
                 'relative flex items-center justify-center w-9 h-9 rounded-xl transition-all duration-200 cursor-pointer',
                 'backdrop-blur-md bg-slate-200/50 dark:bg-slate-800/50 hover:bg-white/80 dark:hover:bg-slate-700/80',
@@ -199,7 +239,7 @@ export const GlassNavbar: React.FC<GlassNavbarProps> = ({
           </div>
 
           {/* Theme Segmented Control (desktop) */}
-          <div className="hidden sm:flex items-center gap-2 bg-slate-200/50 dark:bg-slate-800/50 backdrop-blur-md p-1 rounded-xl border border-white/40 dark:border-white/10">
+          <div className="hidden sm:flex items-center gap-1 bg-slate-200/50 dark:bg-slate-800/50 backdrop-blur-md p-1 rounded-xl border border-white/40 dark:border-white/10">
             <button
               type="button"
               onClick={() => isDark && toggleTheme()}
@@ -211,7 +251,7 @@ export const GlassNavbar: React.FC<GlassNavbarProps> = ({
               )}
             >
               <Sun className="w-3.5 h-3.5 text-amber-500" />
-              Light
+              {t.navbar.light}
             </button>
             <button
               type="button"
@@ -224,7 +264,7 @@ export const GlassNavbar: React.FC<GlassNavbarProps> = ({
               )}
             >
               <Moon className="w-3.5 h-3.5 text-indigo-400" />
-              Dark
+              {t.navbar.dark}
             </button>
           </div>
 
@@ -236,7 +276,7 @@ export const GlassNavbar: React.FC<GlassNavbarProps> = ({
               size="sm"
               iconOn={<Moon className="w-3 h-3 text-indigo-400" />}
               iconOff={<Sun className="w-3 h-3 text-amber-500" />}
-              aria-label="Toggle dark/light mode"
+              aria-label={t.navbar.toggleTheme}
             />
           </div>
 
@@ -249,7 +289,7 @@ export const GlassNavbar: React.FC<GlassNavbarProps> = ({
               leftIcon={<LogOut className="w-4 h-4" />}
               className="text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-500/10 dark:hover:bg-red-500/10"
             >
-              <span className="hidden sm:inline">Wyloguj</span>
+              <span className="hidden sm:inline">{t.navbar.logout}</span>
             </GlassButton>
           )}
         </div>

@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 
 export type AutoRefreshMode = 'first_page' | 'full'
+export type AppLanguage = 'en' | 'pl'
 
 export interface SettingsState {
   /** Concurrency limit for parallel zone rule fetching (1-6) */
@@ -10,11 +11,13 @@ export interface SettingsState {
   autoRefreshInterval: number
   /** Mode of auto-refresh: first_page (delta sync) vs full (all pages) */
   autoRefreshMode: AutoRefreshMode
-  /** Timestamp Date.now() ostatniego udanego pobrania lub odświeżenia reguł */
+  /** Application interface language: English (en) or Polish (pl) */
+  language: AppLanguage
+  /** Timestamp Date.now() of the last successful rules fetch/refresh */
   lastRefreshAt: number | null
-  /** Timestamp Date.now() planowanego kolejnego automatycznego odświeżenia */
+  /** Timestamp Date.now() of the planned next auto-refresh */
   nextRefreshAt: number | null
-  /** Flaga informująca, czy w danej chwili trwa odświeżanie w tle */
+  /** Whether background auto-refresh is currently in progress */
   isAutoRefreshing: boolean
 }
 
@@ -22,6 +25,7 @@ export interface SettingsActions {
   setConcurrency: (val: number) => void
   setAutoRefreshInterval: (interval: number) => void
   setAutoRefreshMode: (mode: AutoRefreshMode) => void
+  setLanguage: (lang: AppLanguage) => void
   markRefreshed: () => void
   scheduleNextRefresh: () => void
   setIsAutoRefreshing: (val: boolean) => void
@@ -34,6 +38,7 @@ export const DEFAULT_SETTINGS: SettingsState = {
   concurrency: 2,
   autoRefreshInterval: 0,
   autoRefreshMode: 'first_page',
+  language: 'en',
   lastRefreshAt: null,
   nextRefreshAt: null,
   isAutoRefreshing: false,
@@ -64,6 +69,14 @@ export const useSettingsStore = create<SettingsState & SettingsActions>()(
         set({
           autoRefreshMode: mode === 'full' ? 'full' : 'first_page',
         }),
+
+      setLanguage: (lang: AppLanguage) => {
+        const validated: AppLanguage = lang === 'pl' ? 'pl' : 'en'
+        if (typeof document !== 'undefined') {
+          document.documentElement.lang = validated
+        }
+        set({ language: validated })
+      },
 
       markRefreshed: () => {
         const now = Date.now()
@@ -104,7 +117,13 @@ export const useSettingsStore = create<SettingsState & SettingsActions>()(
         concurrency: state.concurrency,
         autoRefreshInterval: state.autoRefreshInterval,
         autoRefreshMode: state.autoRefreshMode,
+        language: state.language,
       }),
+      onRehydrateStorage: () => (state) => {
+        if (state?.language && typeof document !== 'undefined') {
+          document.documentElement.lang = state.language
+        }
+      },
     }
   )
 )

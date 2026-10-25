@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { Clock, RefreshCw } from 'lucide-react'
 import { useAuthStore, selectIsAuthenticated } from '../../store/useAuthStore'
 import { useSettingsStore } from '../../store/useSettingsStore'
+import { useTranslation } from '../../i18n/useTranslation'
 import { cn } from '../../lib/utils'
 
 export interface AutoRefreshBadgeProps {
@@ -18,9 +19,9 @@ function formatCountdown(seconds: number): string {
   return `${seconds}s`
 }
 
-function formatLastRefreshTime(timestamp: number | null): string {
-  if (!timestamp) return 'Brak (oczekiwanie)'
-  return new Date(timestamp).toLocaleTimeString('pl-PL', {
+function formatLastRefreshTime(timestamp: number | null, lang: 'en' | 'pl', neverLabel: string): string {
+  if (!timestamp) return neverLabel
+  return new Date(timestamp).toLocaleTimeString(lang === 'pl' ? 'pl-PL' : 'en-US', {
     hour: '2-digit',
     minute: '2-digit',
     second: '2-digit',
@@ -31,6 +32,7 @@ export const AutoRefreshBadge: React.FC<AutoRefreshBadgeProps> = ({
   onClick,
   className,
 }) => {
+  const { t, language } = useTranslation()
   const isAuthenticated = useAuthStore(selectIsAuthenticated)
   const autoRefreshInterval = useSettingsStore((s) => s.autoRefreshInterval)
   const autoRefreshMode = useSettingsStore((s) => s.autoRefreshMode)
@@ -58,13 +60,13 @@ export const AutoRefreshBadge: React.FC<AutoRefreshBadgeProps> = ({
     : autoRefreshInterval
 
   const isSyncing = isAutoRefreshing || remainingSeconds === 0
-  const formattedLast = formatLastRefreshTime(lastRefreshAt)
+  const formattedLast = formatLastRefreshTime(lastRefreshAt, language, t.autoRefresh.never)
   const modeLabel =
-    autoRefreshMode === 'first_page' ? 'Quick 1st Page (Delta)' : 'Full Sync'
+    autoRefreshMode === 'first_page' ? t.autoRefresh.quickSync : t.autoRefresh.fullSync
 
-  const titleTooltip = `Ostatnie odświeżenie: ${formattedLast}\nTryb: ${modeLabel}\nNastępne za: ${
-    isSyncing ? 'w trakcie...' : `${remainingSeconds}s`
-  }\nKliknij, aby zmienić konfigurację`
+  const titleTooltip = `${t.autoRefresh.lastRefresh(formattedLast)}\n${t.autoRefresh.mode(modeLabel)}\n${
+    isSyncing ? t.autoRefresh.syncing : t.autoRefresh.nextIn(remainingSeconds)
+  }\n${t.autoRefresh.openConfig}`
 
   return (
     <div className={cn('relative group inline-flex items-center', className)}>
@@ -72,7 +74,7 @@ export const AutoRefreshBadge: React.FC<AutoRefreshBadgeProps> = ({
         type="button"
         onClick={onClick}
         title={titleTooltip}
-        aria-label="Status i konfiguracja automatycznego odświeżania"
+        aria-label={t.autoRefresh.openConfig}
         className={cn(
           'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-mono font-semibold',
           'backdrop-blur-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20',
@@ -82,13 +84,13 @@ export const AutoRefreshBadge: React.FC<AutoRefreshBadgeProps> = ({
         {isSyncing ? (
           <>
             <RefreshCw className="w-3 h-3 animate-spin text-emerald-500 shrink-0" />
-            <span className="tabular-nums tracking-tight">Sync...</span>
+            <span className="tabular-nums tracking-tight">{t.autoRefresh.syncing}</span>
           </>
         ) : (
           <>
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
             <span className="tabular-nums tracking-tight">
-              Auto: {formatCountdown(remainingSeconds)}
+              {t.autoRefresh.auto} {formatCountdown(remainingSeconds)}
             </span>
           </>
         )}
@@ -100,10 +102,10 @@ export const AutoRefreshBadge: React.FC<AutoRefreshBadgeProps> = ({
         <div className="px-3 py-2 rounded-xl text-center whitespace-nowrap shadow-xl border border-white/60 dark:border-white/10 backdrop-blur-xl bg-white/95 dark:bg-slate-900/95 text-slate-800 dark:text-slate-100 text-xs leading-normal space-y-1">
           <div className="font-semibold flex items-center gap-1.5 justify-center text-slate-900 dark:text-white">
             <Clock className="w-3.5 h-3.5 text-[#f6821f]" />
-            <span>Ostatnie odświeżenie: {formattedLast}</span>
+            <span>{t.autoRefresh.lastRefresh(formattedLast)}</span>
           </div>
           <div className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">
-            Tryb:{' '}
+            {t.autoRefresh.mode('')}
             <span className="font-semibold text-slate-700 dark:text-slate-300">
               {modeLabel}
             </span>

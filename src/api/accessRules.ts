@@ -1,6 +1,7 @@
 import pLimit from 'p-limit'
 import { cfFetch } from './cfClient'
 import { useSettingsStore } from '../store/useSettingsStore'
+import { getTranslations } from '../i18n/useTranslation'
 import type {
   CloudflareAccessRule,
   CloudflareAccessRuleMode,
@@ -188,6 +189,7 @@ export async function fetchAccessRules(
   const { accountLevelOnly = false, onProgress } = options
   const effectiveConcurrency = options.concurrency ?? useSettingsStore.getState().concurrency ?? 2
   const rulesMap = new Map<string, NormalizedAccessRule>()
+  const tApi = getTranslations().api
 
   if (accountLevelOnly) {
     // 2a: Pobierz konta (GET /api/cf/accounts)
@@ -195,7 +197,7 @@ export async function fetchAccessRules(
       loaded: 0,
       total: 100,
       percentage: 10,
-      label: 'Pobieranie listy kont Cloudflare...',
+      label: tApi.initAccounts,
     })
 
     const accounts = await fetchAllPages<CloudflareAccount>(
@@ -209,7 +211,7 @@ export async function fetchAccessRules(
         loaded: 0,
         total: 0,
         percentage: 100,
-        label: 'Brak dostępnych kont Cloudflare dla bieżącego tokenu.',
+        label: tApi.noAccounts,
       })
       return []
     }
@@ -218,7 +220,7 @@ export async function fetchAccessRules(
       loaded: 25,
       total: 100,
       percentage: 25,
-      label: 'Pobieranie reguł dla konta...',
+      label: tApi.fetchingAccountRules,
     })
 
     for (const account of accounts) {
@@ -233,7 +235,7 @@ export async function fetchAccessRules(
               loaded: page,
               total: totalPages,
               percentage,
-              label: `Pobieranie reguł konta (strona ${page} z ${totalPages})...`,
+              label: tApi.fetchingAccountRulesPage(page, totalPages),
             })
           }
         )
@@ -244,7 +246,7 @@ export async function fetchAccessRules(
             key,
             normalizeAccessRule(rule, {
               accountId: account.id,
-              accountName: account.name || rule.scope?.name || rule.scope?.email || 'Konto Cloudflare',
+              accountName: account.name || rule.scope?.name || rule.scope?.email || 'Cloudflare Account',
             })
           )
         }
@@ -257,7 +259,7 @@ export async function fetchAccessRules(
       loaded: 100,
       total: 100,
       percentage: 100,
-      label: `Pobrano ${rulesMap.size} reguł konta.`,
+      label: tApi.accountRulesFetched(rulesMap.size),
     })
 
     return Array.from(rulesMap.values())
@@ -269,7 +271,7 @@ export async function fetchAccessRules(
     loaded: 0,
     total: 100,
     percentage: 10,
-    label: 'Pobieranie listy domen...',
+    label: tApi.initZones,
   })
 
   const zones = await fetchAllPages<CloudflareZone>(
@@ -284,7 +286,7 @@ export async function fetchAccessRules(
       loaded: 50,
       total: 100,
       percentage: 50,
-      label: 'Brak domen. Pobieranie reguł poziomu konta...',
+      label: tApi.noZonesAccountFallback,
     })
 
     const accounts = await fetchAllPages<CloudflareAccount>(
@@ -304,7 +306,7 @@ export async function fetchAccessRules(
             `account-${account.id}-${rule.id}`,
             normalizeAccessRule(rule, {
               accountId: account.id,
-              accountName: account.name || rule.scope?.name || rule.scope?.email || 'Konto Cloudflare',
+              accountName: account.name || rule.scope?.name || rule.scope?.email || 'Cloudflare Account',
             })
           )
         }
@@ -317,7 +319,7 @@ export async function fetchAccessRules(
       loaded: 100,
       total: 100,
       percentage: 100,
-      label: `Pobrano ${rulesMap.size} reguł.`,
+      label: tApi.zonesFetched(rulesMap.size),
     })
 
     return Array.from(rulesMap.values())
@@ -332,7 +334,7 @@ export async function fetchAccessRules(
     loaded: 0,
     total: totalZones,
     percentage: 15,
-    label: `Rozpoczynanie pobierania reguł dla ${totalZones} domen (współbieżność: ${effectiveConcurrency})...`,
+    label: tApi.startingZonesFetch(totalZones, effectiveConcurrency),
   })
 
   const tasks = zones.map((zone) =>
@@ -358,7 +360,7 @@ export async function fetchAccessRules(
                     zone.account?.name ||
                     rule.scope?.name ||
                     rule.scope?.email ||
-                    'Konto Cloudflare',
+                    'Cloudflare Account',
                 })
               )
             }
@@ -385,7 +387,7 @@ export async function fetchAccessRules(
           loaded: completedZones,
           total: totalZones,
           percentage,
-          label: `Pobrano reguły dla ${completedZones} z ${totalZones} domen (${rulesMap.size} reguł)...`,
+          label: tApi.zoneRulesProgress(completedZones, totalZones, rulesMap.size),
         })
       }
     })
@@ -397,7 +399,7 @@ export async function fetchAccessRules(
     loaded: totalZones,
     total: totalZones,
     percentage: 100,
-    label: `Ukończono pobieranie reguł dla wszystkich domen (${rulesMap.size} reguł).`,
+    label: tApi.allZonesCompleted(rulesMap.size),
   })
 
   return Array.from(rulesMap.values())
@@ -463,10 +465,10 @@ export async function updateAccessRule(
     : `/zones/${rule.zoneId}/firewall/access_rules/rules/${rule.id}`
 
   if (isAccount && !rule.accountId) {
-    throw new Error(`Brak wymaganego accountId dla reguły konta ${rule.id}`)
+    throw new Error(getTranslations().deleteModal.errorAccountMissing)
   }
   if (!isAccount && !rule.zoneId) {
-    throw new Error(`Brak wymaganego zoneId dla reguły strefy ${rule.id}`)
+    throw new Error(getTranslations().deleteModal.errorZoneMissing)
   }
 
   // Zawsze przekaż mode reguły (aktualne lub nowe), ponieważ Cloudflare API tego wymaga w PATCH
@@ -536,7 +538,7 @@ export async function bulkDeleteAccessRules(
           success: false as const,
           rule,
           error:
-            err instanceof Error ? err.message : 'Nieznany błąd podczas usuwania',
+            err instanceof Error ? err.message : getTranslations().common.error,
         }
       } finally {
         current++
@@ -566,7 +568,7 @@ export async function bulkDeleteAccessRules(
         error:
           item.reason instanceof Error
             ? item.reason.message
-            : 'Nieoczekiwany błąd zadania',
+            : getTranslations().common.error,
       })
     }
   }

@@ -21,6 +21,7 @@ import {
 import { useAuthStore } from '../../store/useAuthStore'
 import { useSettingsStore } from '../../store/useSettingsStore'
 import { setCachedRules } from '../../utils/rulesCache'
+import { useTranslation } from '../../i18n/useTranslation'
 import { GlassButton } from '../ui/GlassButton'
 import { GlassCard } from '../ui/GlassCard'
 
@@ -37,6 +38,7 @@ export const ConfirmDeleteDialog: React.FC<ConfirmDeleteDialogProps> = ({
   rules,
   onSuccess,
 }) => {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const accountLevelOnly = useAuthStore((s) => s.accountLevelOnly)
   const concurrency = useSettingsStore((s) => s.concurrency)
@@ -149,11 +151,11 @@ export const ConfirmDeleteDialog: React.FC<ConfirmDeleteDialogProps> = ({
                         className="text-lg font-bold text-slate-900 dark:text-white"
                       >
                         {isSingle
-                          ? 'Usuń regułę dostępu'
-                          : `Usuń ${count} zaznaczonych reguł`}
+                          ? t.deleteModal.titleSingle
+                          : t.deleteModal.titleBulk(count)}
                       </h3>
                       <p className="text-xs text-slate-500 dark:text-slate-400">
-                        Potwierdź operację usunięcia w Cloudflare
+                        {t.deleteModal.subtitle}
                       </p>
                     </div>
                   </div>
@@ -163,7 +165,7 @@ export const ConfirmDeleteDialog: React.FC<ConfirmDeleteDialogProps> = ({
                       type="button"
                       onClick={handleClose}
                       className="p-1 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer"
-                      aria-label="Zamknij"
+                      aria-label={t.common.close}
                     >
                       <X className="w-4 h-4" />
                     </button>
@@ -176,7 +178,7 @@ export const ConfirmDeleteDialog: React.FC<ConfirmDeleteDialogProps> = ({
                     <div className="flex items-center justify-between text-xs font-semibold">
                       <span className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
                         <Loader2 className="w-4 h-4 animate-spin text-red-500" />
-                        Usuwanie z serwerów brzegowych ({progress.current} z {progress.total})...
+                        {t.deleteModal.deleting} ({progress.current} / {progress.total})...
                       </span>
                       <span className="font-mono text-red-600 dark:text-red-400">
                         {progress.percentage}%
@@ -191,7 +193,7 @@ export const ConfirmDeleteDialog: React.FC<ConfirmDeleteDialogProps> = ({
                     </div>
 
                     <p className="text-xs text-center text-slate-500">
-                      Współbieżność kontrolowana przez p-limit({concurrency})
+                      {t.settings.threads(concurrency)}
                     </p>
                   </div>
                 ) : result ? (
@@ -199,14 +201,16 @@ export const ConfirmDeleteDialog: React.FC<ConfirmDeleteDialogProps> = ({
                   <div className="space-y-3 py-2">
                     <div className="flex items-center gap-2 text-sm font-semibold text-emerald-600 dark:text-emerald-400">
                       <CheckCircle2 className="w-4 h-4" />
-                      Pomyślnie usunięto {result.successful.length} z {result.total} reguł.
+                      {result.failed.length === 0
+                        ? t.deleteModal.completedAll(result.successful.length)
+                        : t.deleteModal.completedPartial(result.successful.length, result.failed.length)}
                     </div>
 
                     {result.failed.length > 0 && (
                       <div className="space-y-2 p-3 rounded-xl bg-red-500/10 border border-red-500/20">
                         <div className="flex items-center gap-1.5 text-xs font-bold text-red-600 dark:text-red-400">
                           <XCircle className="w-3.5 h-3.5" />
-                          Nie udało się usunąć {result.failed.length} reguł:
+                          {result.failed.length} {t.deleteModal.errorsHeading}
                         </div>
                         <ul className="text-xs text-red-600 dark:text-red-400 space-y-1 max-h-32 overflow-y-auto">
                           {result.failed.map((f, idx) => (
@@ -222,8 +226,9 @@ export const ConfirmDeleteDialog: React.FC<ConfirmDeleteDialogProps> = ({
                   // Stan: przed rozpoczęciem (potwierdzenie)
                   <div className="space-y-3 text-sm text-slate-600 dark:text-slate-300">
                     <p>
-                      Czy na pewno chcesz bezpowrotnie usunąć wybrane reguły z Cloudflare?
-                      Po zatwierdzeniu ruch sieciowy przestanie być filtrowany przez te reguły.
+                      {isSingle
+                        ? t.deleteModal.warningSingle
+                        : t.deleteModal.warningBulk(count)}
                     </p>
 
                     {/* Podgląd pojedynczej reguły */}
@@ -245,7 +250,7 @@ export const ConfirmDeleteDialog: React.FC<ConfirmDeleteDialogProps> = ({
                                 ACCOUNT
                               </span>
                               <Building2 className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
-                              <span>{singleRule.accountName || 'Całe konto'}</span>
+                              <span>{singleRule.accountName || t.table.entireAccount}</span>
                             </span>
                           ) : (
                             <span className="flex items-center gap-1.5 font-medium text-slate-800 dark:text-slate-200">
@@ -253,7 +258,7 @@ export const ConfirmDeleteDialog: React.FC<ConfirmDeleteDialogProps> = ({
                                 ZONE
                               </span>
                               <Globe className="w-3.5 h-3.5 text-blue-500 shrink-0" />
-                              <span>{singleRule.zoneName || 'Strefa Cloudflare'}</span>
+                              <span>{singleRule.zoneName || t.table.cloudflareZone}</span>
                             </span>
                           )}
                         </div>
@@ -274,14 +279,14 @@ export const ConfirmDeleteDialog: React.FC<ConfirmDeleteDialogProps> = ({
                             {r.scopeType === 'account' ? (
                               <span
                                 className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold font-mono uppercase bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border border-indigo-500/25"
-                                title={r.accountName || 'Całe konto'}
+                                title={r.accountName || t.table.entireAccount}
                               >
                                 ACCOUNT
                               </span>
                             ) : (
                               <span
                                 className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold font-mono uppercase bg-blue-500/15 text-blue-600 dark:text-blue-400 border border-blue-500/25"
-                                title={r.zoneName || 'Strefa'}
+                                title={r.zoneName || t.table.cloudflareZone}
                               >
                                 ZONE
                               </span>
@@ -290,7 +295,7 @@ export const ConfirmDeleteDialog: React.FC<ConfirmDeleteDialogProps> = ({
                         ))}
                         {rules.length > 8 && (
                           <div className="text-[11px] text-slate-400 italic pt-1 text-center">
-                            + {rules.length - 8} kolejnych reguł...
+                            + {rules.length - 8} ...
                           </div>
                         )}
                       </div>
@@ -302,7 +307,7 @@ export const ConfirmDeleteDialog: React.FC<ConfirmDeleteDialogProps> = ({
                 <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-200/70 dark:border-white/10">
                   {result ? (
                     <GlassButton variant="glass" size="md" onClick={handleClose}>
-                      Zamknij
+                      {t.common.close}
                     </GlassButton>
                   ) : (
                     <>
@@ -312,7 +317,7 @@ export const ConfirmDeleteDialog: React.FC<ConfirmDeleteDialogProps> = ({
                         onClick={handleClose}
                         disabled={isDeleting}
                       >
-                        Anuluj
+                        {t.common.cancel}
                       </GlassButton>
 
                       <GlassButton
@@ -322,7 +327,7 @@ export const ConfirmDeleteDialog: React.FC<ConfirmDeleteDialogProps> = ({
                         isLoading={isDeleting}
                         leftIcon={<Trash2 className="w-4 h-4" />}
                       >
-                        {isSingle ? 'Usuń regułę' : `Usuń ${count} reguł`}
+                        {isSingle ? t.deleteModal.confirmDelete : t.deleteModal.confirmDeleteBulk(count)}
                       </GlassButton>
                     </>
                   )}

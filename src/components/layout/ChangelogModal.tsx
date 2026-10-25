@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 import rawChangelog from '../../generated/changelog.json'
 import type { ChangelogData, ChangelogRelease } from '../../types/changelog'
+import { useTranslation } from '../../i18n/useTranslation'
 import { GlassButton } from '../ui/GlassButton'
 import { GlassCard } from '../ui/GlassCard'
 import { cn } from '../../lib/utils'
@@ -100,6 +101,7 @@ export const ChangelogModal: React.FC<ChangelogModalProps> = ({
   isOpen,
   onClose,
 }) => {
+  const { t } = useTranslation()
   const [selectedTypeFilter, setSelectedTypeFilter] = useState<string>('all')
   const [copiedHash, setCopiedHash] = useState<string | null>(null)
 
@@ -168,7 +170,7 @@ export const ChangelogModal: React.FC<ChangelogModalProps> = ({
                           id="changelog-modal-title"
                           className="text-lg font-bold text-slate-900 dark:text-white"
                         >
-                          Historia zmian (Changelog)
+                          {t.changelog.title}
                         </h3>
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-mono font-semibold bg-orange-500/10 text-[#f6821f] border border-orange-500/20">
                           <Tag className="w-3 h-3" />
@@ -176,9 +178,7 @@ export const ChangelogModal: React.FC<ChangelogModalProps> = ({
                         </span>
                       </div>
                       <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                        Zarejestrowano {totalCommitsCount} zmian w {allReleases.length}{' '}
-                        {allReleases.length === 1 ? 'wydaniu' : 'wydaniach'} • commit:{' '}
-                        <span className="font-mono">{changelogData.latestCommit}</span>
+                        {t.changelog.subtitle(totalCommitsCount, allReleases.length, changelogData.latestCommit)}
                       </p>
                     </div>
                   </div>
@@ -187,7 +187,7 @@ export const ChangelogModal: React.FC<ChangelogModalProps> = ({
                     type="button"
                     onClick={onClose}
                     className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer"
-                    aria-label="Zamknij historię zmian"
+                    aria-label={t.common.close}
                   >
                     <X className="w-5 h-5" />
                   </button>
@@ -205,7 +205,7 @@ export const ChangelogModal: React.FC<ChangelogModalProps> = ({
                         : 'bg-slate-200/50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800'
                     )}
                   >
-                    Wszystkie ({totalCommitsCount})
+                    {t.changelog.all(totalCommitsCount)}
                   </button>
                   {['feat', 'fix', 'perf', 'chore'].map((typeKey) => {
                     const cfg = getTypeBadge(typeKey)
@@ -272,7 +272,7 @@ export const ChangelogModal: React.FC<ChangelogModalProps> = ({
 
                             {isUnreleased && (
                               <span className="text-[11px] font-semibold text-amber-600 dark:text-amber-400">
-                                (Ostatnie commity na HEAD)
+                                {t.changelog.unreleased}
                               </span>
                             )}
                           </div>
@@ -327,14 +327,14 @@ export const ChangelogModal: React.FC<ChangelogModalProps> = ({
                                 <button
                                   type="button"
                                   onClick={(e) => copyHash(change.hash, e)}
-                                  title="Kopiuj hash commita"
+                                  title={t.changelog.copyCommit}
                                   className="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-mono font-medium text-slate-500 dark:text-slate-400 bg-slate-200/50 dark:bg-slate-800/50 hover:bg-slate-300/50 dark:hover:bg-slate-700/50 border border-slate-300/40 dark:border-white/10 transition-colors cursor-pointer"
                                 >
                                   {isCopied ? (
                                     <>
                                       <Check className="w-3 h-3 text-emerald-500" />
                                       <span className="text-[10px] text-emerald-600 dark:text-emerald-400">
-                                        Skopiowano
+                                        {t.changelog.copied}
                                       </span>
                                     </>
                                   ) : (
@@ -357,11 +357,11 @@ export const ChangelogModal: React.FC<ChangelogModalProps> = ({
                 <div className="flex items-center justify-between pt-4 border-t border-slate-200/70 dark:border-white/10 text-xs text-slate-500 dark:text-slate-400">
                   <div className="flex items-center gap-1.5">
                     <GitBranch className="w-3.5 h-3.5 text-[#f6821f]" />
-                    <span>Wygenerowano automatycznie z historii Git</span>
+                    <span>{t.changelog.generatedFromGit}</span>
                   </div>
 
                   <GlassButton variant="primary" size="md" onClick={onClose}>
-                    Zamknij
+                    {t.common.close}
                   </GlassButton>
                 </div>
               </div>

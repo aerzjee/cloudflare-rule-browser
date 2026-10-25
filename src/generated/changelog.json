@@ -1,8 +1,23 @@
 {
   "latestVersion": "1.1.0",
   "latestCommit": "4310e33",
-  "generatedAt": "2026-10-25T23:13:04.741Z",
+  "generatedAt": "2026-10-25T23:30:05.403Z",
   "releases": [
+    {
+      "version": "Unreleased / Next",
+      "tag": "HEAD",
+      "commit": "2beb3df",
+      "date": "2026-10-26",
+      "changes": [
+        {
+          "hash": "2beb3df",
+          "date": "2026-10-26",
+          "type": "feat",
+          "scope": "navbar",
+          "message": "add live countdown timer and last-refresh tooltip to auto-refresh badge"
+        }
+      ]
+    },
     {
       "version": "1.1.0",
       "tag": "v1.1.0",

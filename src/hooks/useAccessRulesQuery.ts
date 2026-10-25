@@ -3,15 +3,9 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { fetchAccessRules, fetchFirstPageRules } from '../api/accessRules'
 import { useAuthStore } from '../store/useAuthStore'
 import { useSettingsStore } from '../store/useSettingsStore'
-import {
-  getCachedRules,
-  setCachedRules,
-  clearCachedRules,
-} from '../utils/rulesCache'
-import type {
-  FetchProgress,
-  NormalizedAccessRule,
-} from '../types/cloudflare'
+import { getCachedRules, setCachedRules, clearCachedRules } from '../utils/rulesCache'
+import { getTranslations } from '../i18n/useTranslation'
+import type { FetchProgress, NormalizedAccessRule } from '../types/cloudflare'
 
 export interface UseAccessRulesQueryResult {
   rules: NormalizedAccessRule[]
@@ -55,7 +49,7 @@ export function useAccessRulesQuery(): UseAccessRulesQueryResult {
             loaded: cached.length,
             total: cached.length,
             percentage: 100,
-            label: `Wczytano ${cached.length} reguł z pamięci IndexedDB.`,
+            label: getTranslations().api.rulesLoadedIndexedDb(cached.length),
           })
           // Jeśli znacznik ostatniego odświeżenia nie jest jeszcze ustawiony, zainicjalizuj go
           if (!useSettingsStore.getState().lastRefreshAt) {
@@ -73,7 +67,7 @@ export function useAccessRulesQuery(): UseAccessRulesQueryResult {
         loaded: 0,
         total: 100,
         percentage: 5,
-        label: 'Inicjalizacja pobierania reguł Cloudflare...',
+        label: getTranslations().api.initFetch,
       })
 
       const freshRules = await fetchAccessRules({
@@ -105,7 +99,7 @@ export function useAccessRulesQuery(): UseAccessRulesQueryResult {
       loaded: 0,
       total: 100,
       percentage: 5,
-      label: 'Wymuszone odświeżanie z Cloudflare API...',
+      label: getTranslations().api.forcedRefresh,
     })
     return await query.refetch()
   }, [accountLevelOnly, query])
@@ -218,14 +212,14 @@ export function useAccessRulesQuery(): UseAccessRulesQueryResult {
         loaded: query.data?.length || 0,
         total: query.data?.length || 0,
         percentage: 100,
-        label: `Załadowano ${query.data?.length || 0} reguł.`,
+        label: getTranslations().api.rulesLoaded(query.data?.length || 0),
       }
     : query.isError
     ? {
         loaded: 0,
         total: 0,
         percentage: 0,
-        label: query.error?.message || 'Błąd podczas pobierania reguł',
+        label: query.error?.message || getTranslations().api.fetchError,
       }
     : progress
 

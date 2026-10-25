@@ -37,6 +37,7 @@ import {
   X,
 } from 'lucide-react'
 import type { NormalizedAccessRule } from '../../types/cloudflare'
+import { useTranslation } from '../../i18n/useTranslation'
 import { GlassButton } from '../ui/GlassButton'
 import { GlassCard } from '../ui/GlassCard'
 import { GlassInput } from '../ui/GlassInput'
@@ -117,7 +118,11 @@ const GlassCheckbox: React.FC<GlassCheckboxProps> = ({
   )
 }
 
-const CopyButton: React.FC<{ value: string }> = ({ value }) => {
+const CopyButton: React.FC<{ value: string; copyLabel?: string; copiedLabel?: string }> = ({
+  value,
+  copyLabel = 'Copy to clipboard',
+  copiedLabel = 'Copied!',
+}) => {
   const [copied, setCopied] = useState(false)
 
   const handleCopy = (e: React.MouseEvent) => {
@@ -133,7 +138,7 @@ const CopyButton: React.FC<{ value: string }> = ({ value }) => {
     <button
       type="button"
       onClick={handleCopy}
-      title={copied ? 'Skopiowano!' : 'Kopiuj do schowka'}
+      title={copied ? copiedLabel : copyLabel}
       className={cn(
         'p-1 rounded-md transition-all duration-200 cursor-pointer',
         'hover:bg-slate-200/60 dark:hover:bg-slate-700/60 active:scale-95',
@@ -141,19 +146,19 @@ const CopyButton: React.FC<{ value: string }> = ({ value }) => {
           ? 'text-emerald-500 dark:text-emerald-400'
           : 'text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
       )}
-      aria-label="Kopiuj do schowka"
+      aria-label={copyLabel}
     >
       {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
     </button>
   )
 }
 
-function formatDate(dateStr?: string): string {
+function formatDate(dateStr?: string, language: string = 'en'): string {
   if (!dateStr) return '-'
   try {
     const d = new Date(dateStr)
     if (isNaN(d.getTime())) return dateStr
-    return new Intl.DateTimeFormat('pl-PL', {
+    return new Intl.DateTimeFormat(language === 'pl' ? 'pl-PL' : 'en-US', {
       year: 'numeric',
       month: '2-digit',
       day: '2-digit',
@@ -191,6 +196,8 @@ export const RulesTable: React.FC<RulesTableProps> = ({
 }) => {
   "use no memo";
 
+  const { t, language } = useTranslation()
+
   // Local table state
   const [internalRowSelection, setInternalRowSelection] = useState<RowSelectionState>({})
   const rowSelection = controlledRowSelection ?? internalRowSelection
@@ -219,7 +226,7 @@ export const RulesTable: React.FC<RulesTableProps> = ({
               checked={table.getIsAllPageRowsSelected()}
               indeterminate={table.getIsSomePageRowsSelected()}
               onChange={table.getToggleAllPageRowsSelectedHandler()}
-              aria-label="Zaznacz wszystkie na stronie"
+              aria-label={language === 'pl' ? 'Zaznacz wszystkie na stronie' : 'Select all on page'}
             />
           </div>
         ),
@@ -229,7 +236,7 @@ export const RulesTable: React.FC<RulesTableProps> = ({
               checked={row.getIsSelected()}
               disabled={!row.getCanSelect()}
               onChange={row.getToggleSelectedHandler()}
-              aria-label={`Zaznacz regułę ${row.original.id}`}
+              aria-label={language === 'pl' ? `Zaznacz regułę ${row.original.id}` : `Select rule ${row.original.id}`}
             />
           </div>
         ),
@@ -252,7 +259,7 @@ export const RulesTable: React.FC<RulesTableProps> = ({
               onClick={column.getToggleSortingHandler()}
               className="group flex items-center gap-1.5 font-semibold text-slate-800 dark:text-slate-200 cursor-pointer select-none"
             >
-              <span>Domena / Zakres</span>
+              <span>{t.table.colScope}</span>
               {isSorted === 'asc' ? (
                 <ArrowUp className="w-3.5 h-3.5 text-[#f6821f]" />
               ) : isSorted === 'desc' ? (
@@ -279,7 +286,7 @@ export const RulesTable: React.FC<RulesTableProps> = ({
                   className="font-medium text-sm text-slate-800 dark:text-slate-200 truncate"
                   title={rule.accountName}
                 >
-                  {rule.accountName || 'Całe konto'}
+                  {rule.accountName || t.table.entireAccount}
                 </span>
               </div>
             )
@@ -299,7 +306,7 @@ export const RulesTable: React.FC<RulesTableProps> = ({
                   className="font-medium text-sm text-slate-900 dark:text-slate-100 truncate"
                   title={rule.zoneName}
                 >
-                  {rule.zoneName || 'Strefa Cloudflare'}
+                  {rule.zoneName || t.table.cloudflareZone}
                 </span>
                 {rule.zoneId && (
                   <span className="font-mono text-[10px] text-slate-400 truncate">
@@ -324,7 +331,7 @@ export const RulesTable: React.FC<RulesTableProps> = ({
               onClick={column.getToggleSortingHandler()}
               className="group flex items-center gap-1.5 font-semibold text-slate-800 dark:text-slate-200 cursor-pointer select-none"
             >
-              <span>Target / Wartość</span>
+              <span>{t.table.colTargetValue}</span>
               {isSorted === 'asc' ? (
                 <ArrowUp className="w-3.5 h-3.5 text-[#f6821f]" />
               ) : isSorted === 'desc' ? (
@@ -351,7 +358,11 @@ export const RulesTable: React.FC<RulesTableProps> = ({
                 {value}
               </span>
 
-              <CopyButton value={value} />
+              <CopyButton
+                value={value}
+                copyLabel={t.table.copyValue}
+                copiedLabel={t.common.copied}
+              />
             </div>
           )
         },
@@ -369,7 +380,7 @@ export const RulesTable: React.FC<RulesTableProps> = ({
               onClick={column.getToggleSortingHandler()}
               className="group flex items-center gap-1.5 font-semibold text-slate-800 dark:text-slate-200 cursor-pointer select-none"
             >
-              <span>Akcja / Tryb</span>
+              <span>{t.table.colMode}</span>
               {isSorted === 'asc' ? (
                 <ArrowUp className="w-3.5 h-3.5 text-[#f6821f]" />
               ) : isSorted === 'desc' ? (
@@ -395,7 +406,7 @@ export const RulesTable: React.FC<RulesTableProps> = ({
               onClick={column.getToggleSortingHandler()}
               className="group flex items-center gap-1.5 font-semibold text-slate-800 dark:text-slate-200 cursor-pointer select-none"
             >
-              <span>Notatki</span>
+              <span>{t.table.colNotes}</span>
               {isSorted === 'asc' ? (
                 <ArrowUp className="w-3.5 h-3.5 text-[#f6821f]" />
               ) : isSorted === 'desc' ? (
@@ -421,7 +432,7 @@ export const RulesTable: React.FC<RulesTableProps> = ({
               onClick={column.getToggleSortingHandler()}
               className="group flex items-center gap-1.5 font-semibold text-slate-800 dark:text-slate-200 cursor-pointer select-none"
             >
-              <span>Data utworzenia</span>
+              <span>{t.table.colCreated}</span>
               {isSorted === 'asc' ? (
                 <ArrowUp className="w-3.5 h-3.5 text-[#f6821f]" />
               ) : isSorted === 'desc' ? (
@@ -435,7 +446,7 @@ export const RulesTable: React.FC<RulesTableProps> = ({
         cell: ({ row }) => (
           <div className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-400">
             <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-            <span>{formatDate(row.original.created_on)}</span>
+            <span>{formatDate(row.original.created_on, language)}</span>
           </div>
         ),
       },
@@ -443,7 +454,7 @@ export const RulesTable: React.FC<RulesTableProps> = ({
       // 1g. Actions
       {
         id: 'actions',
-        header: () => <span className="sr-only">Akcje</span>,
+        header: () => <span className="sr-only">{t.table.colActions}</span>,
         cell: ({ row }) => {
           const rule = row.original
           return (
@@ -451,9 +462,9 @@ export const RulesTable: React.FC<RulesTableProps> = ({
               <button
                 type="button"
                 onClick={() => onDeleteRule?.(rule)}
-                title="Usuń regułę"
+                title={t.table.deleteRule}
                 className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer"
-                aria-label="Usuń regułę"
+                aria-label={t.table.deleteRule}
               >
                 <Trash2 className="w-4 h-4" />
               </button>
@@ -464,7 +475,7 @@ export const RulesTable: React.FC<RulesTableProps> = ({
         size: 50,
       },
     ],
-    [onDeleteRule]
+    [onDeleteRule, language, t]
   )
 
   // Filtered dataset for Mode and Scope filters
@@ -565,7 +576,7 @@ export const RulesTable: React.FC<RulesTableProps> = ({
           {/* Lewa strona: wyszukiwarka */}
           <div className="flex-1 max-w-md">
             <GlassInput
-              placeholder="Szukaj po IP, domenie, notatce..."
+              placeholder={t.table.searchPlaceholder}
               value={globalFilter}
               onChange={(e) => setGlobalFilter(e.target.value)}
               leftIcon={<Search className="w-4 h-4 text-slate-400" />}
@@ -575,7 +586,7 @@ export const RulesTable: React.FC<RulesTableProps> = ({
                     type="button"
                     onClick={() => setGlobalFilter('')}
                     className="p-1 hover:text-slate-700 dark:hover:text-slate-200 cursor-pointer"
-                    aria-label="Wyczyść wyszukiwanie"
+                    aria-label={t.table.clearSearch}
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>
@@ -592,7 +603,7 @@ export const RulesTable: React.FC<RulesTableProps> = ({
               <select
                 value={modeFilter}
                 onChange={(e) => setModeFilter(e.target.value)}
-                aria-label="Filtruj wg trybu akcji"
+                aria-label={t.table.filterModeAria}
                 className={cn(
                   'h-10 px-3 py-1.5 rounded-xl text-xs sm:text-sm font-medium transition-all duration-200 cursor-pointer',
                   'backdrop-blur-md bg-white/70 dark:bg-slate-900/60',
@@ -601,12 +612,12 @@ export const RulesTable: React.FC<RulesTableProps> = ({
                   'focus:outline-none focus:ring-2 focus:ring-[#f6821f]/40 focus:border-[#f6821f]'
                 )}
               >
-                <option value="all">Wszystkie akcje</option>
-                <option value="block">Block (Blokada)</option>
-                <option value="whitelist">Whitelist (Biała lista)</option>
-                <option value="managed_challenge">Managed Challenge</option>
-                <option value="js_challenge">JS Challenge</option>
-                <option value="challenge">Challenge</option>
+                <option value="all">{t.table.allModes}</option>
+                <option value="block">Block ({t.modeDropdown.modes.block.label})</option>
+                <option value="whitelist">Whitelist ({t.modeDropdown.modes.whitelist.label})</option>
+                <option value="managed_challenge">Managed Challenge ({t.modeDropdown.modes.managed_challenge.label})</option>
+                <option value="js_challenge">JS Challenge ({t.modeDropdown.modes.js_challenge.label})</option>
+                <option value="challenge">Challenge ({t.modeDropdown.modes.challenge.label})</option>
               </select>
             </div>
 
@@ -616,7 +627,7 @@ export const RulesTable: React.FC<RulesTableProps> = ({
               onChange={(e) =>
                 setScopeFilter(e.target.value as 'all' | 'account' | 'zone')
               }
-              aria-label="Filtruj wg zakresu"
+              aria-label={t.table.filterScopeAria}
               className={cn(
                 'h-10 px-3 py-1.5 rounded-xl text-xs sm:text-sm font-medium transition-all duration-200 cursor-pointer',
                 'backdrop-blur-md bg-white/70 dark:bg-slate-900/60',
@@ -625,9 +636,9 @@ export const RulesTable: React.FC<RulesTableProps> = ({
                 'focus:outline-none focus:ring-2 focus:ring-[#f6821f]/40 focus:border-[#f6821f]'
               )}
             >
-              <option value="all">Wszystkie zakresy</option>
-              <option value="account">Tylko reguły konta</option>
-              <option value="zone">Tylko reguły stref</option>
+              <option value="all">{t.table.allScopes}</option>
+              <option value="account">{t.table.accountOnly}</option>
+              <option value="zone">{t.table.zoneOnly}</option>
             </select>
 
             {/* Przycisk usuwania zaznaczonych */}
@@ -638,7 +649,7 @@ export const RulesTable: React.FC<RulesTableProps> = ({
                 onClick={handleDeleteSelected}
                 leftIcon={<Trash2 className="w-4 h-4" />}
               >
-                Usuń zaznaczone ({selectedCount})
+                {t.table.deleteSelected(selectedCount)}
               </GlassButton>
             )}
 
@@ -655,7 +666,7 @@ export const RulesTable: React.FC<RulesTableProps> = ({
                   />
                 }
               >
-                Odśwież
+                {t.common.refresh}
               </GlassButton>
             )}
           </div>
@@ -665,19 +676,12 @@ export const RulesTable: React.FC<RulesTableProps> = ({
         <div className="flex flex-wrap items-center justify-between gap-2 mt-3 pt-3 border-t border-slate-200/60 dark:border-white/5 text-xs text-slate-500 dark:text-slate-400">
           <div className="flex items-center gap-3">
             <span>
-              Znaleziono:{' '}
-              <strong className="text-slate-800 dark:text-slate-200">
-                {table.getFilteredRowModel().rows.length}
-              </strong>{' '}
-              reguł
-              {data.length !== table.getFilteredRowModel().rows.length && (
-                <span> (z łącznie {data.length})</span>
-              )}
+              {t.table.foundRules(table.getFilteredRowModel().rows.length, data.length)}
             </span>
 
             {selectedCount > 0 && (
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-orange-500/10 text-[#f6821f] font-semibold">
-                Zaznaczono {selectedCount}
+                {t.table.selectedCount(selectedCount)}
               </span>
             )}
           </div>
@@ -693,7 +697,7 @@ export const RulesTable: React.FC<RulesTableProps> = ({
               }}
               className="text-orange-600 dark:text-orange-400 hover:underline cursor-pointer font-medium"
             >
-              Wyczyść filtry
+              {t.table.clearFilters}
             </button>
           )}
         </div>
@@ -751,11 +755,10 @@ export const RulesTable: React.FC<RulesTableProps> = ({
                         <Filter className="w-6 h-6" />
                       </div>
                       <p className="font-semibold text-base text-slate-800 dark:text-slate-200">
-                        Brak pasujących reguł
+                        {t.table.emptyTitle}
                       </p>
                       <p className="text-xs max-w-sm">
-                        Nie znaleziono żadnych reguł Cloudflare spełniających zadane kryteria
-                        wyszukiwania lub konto nie posiada skonfigurowanych reguł dostępu.
+                        {t.table.emptyDesc}
                       </p>
                     </div>
                   </td>
@@ -795,7 +798,7 @@ export const RulesTable: React.FC<RulesTableProps> = ({
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-5 py-3.5 border-t border-slate-200/80 dark:border-white/10 backdrop-blur-md bg-white/40 dark:bg-slate-950/40 text-xs text-slate-600 dark:text-slate-400">
             {/* Wybór liczby wierszy na stronę */}
             <div className="flex items-center gap-2">
-              <span>Wierszy na stronę:</span>
+              <span>{t.table.rowsPerPage}</span>
               <select
                 value={table.getState().pagination.pageSize}
                 onChange={(e) => table.setPageSize(Number(e.target.value))}
@@ -813,11 +816,11 @@ export const RulesTable: React.FC<RulesTableProps> = ({
               </select>
 
               <span className="hidden sm:inline">
-                Strona{' '}
+                {t.table.page}{' '}
                 <strong className="text-slate-800 dark:text-slate-200">
                   {table.getState().pagination.pageIndex + 1}
                 </strong>{' '}
-                z{' '}
+                {t.table.of}{' '}
                 <strong className="text-slate-800 dark:text-slate-200">
                   {table.getPageCount()}
                 </strong>
@@ -831,8 +834,8 @@ export const RulesTable: React.FC<RulesTableProps> = ({
                 onClick={() => table.setPageIndex(0)}
                 disabled={!table.getCanPreviousPage()}
                 className="p-1.5 rounded-lg border border-slate-300/60 dark:border-white/10 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-200/50 dark:hover:bg-slate-800/50 cursor-pointer"
-                title="Pierwsza strona"
-                aria-label="Pierwsza strona"
+                title={t.table.firstPage}
+                aria-label={t.table.firstPage}
               >
                 <ChevronsLeft className="w-4 h-4" />
               </button>
@@ -841,8 +844,8 @@ export const RulesTable: React.FC<RulesTableProps> = ({
                 onClick={() => table.previousPage()}
                 disabled={!table.getCanPreviousPage()}
                 className="p-1.5 rounded-lg border border-slate-300/60 dark:border-white/10 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-200/50 dark:hover:bg-slate-800/50 cursor-pointer"
-                title="Poprzednia strona"
-                aria-label="Poprzednia strona"
+                title={t.table.prevPage}
+                aria-label={t.table.prevPage}
               >
                 <ChevronLeft className="w-4 h-4" />
               </button>
@@ -856,8 +859,8 @@ export const RulesTable: React.FC<RulesTableProps> = ({
                 onClick={() => table.nextPage()}
                 disabled={!table.getCanNextPage()}
                 className="p-1.5 rounded-lg border border-slate-300/60 dark:border-white/10 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-200/50 dark:hover:bg-slate-800/50 cursor-pointer"
-                title="Następna strona"
-                aria-label="Następna strona"
+                title={t.table.nextPage}
+                aria-label={t.table.nextPage}
               >
                 <ChevronRight className="w-4 h-4" />
               </button>
@@ -866,8 +869,8 @@ export const RulesTable: React.FC<RulesTableProps> = ({
                 onClick={() => table.setPageIndex(table.getPageCount() - 1)}
                 disabled={!table.getCanNextPage()}
                 className="p-1.5 rounded-lg border border-slate-300/60 dark:border-white/10 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-200/50 dark:hover:bg-slate-800/50 cursor-pointer"
-                title="Ostatnia strona"
-                aria-label="Ostatnia strona"
+                title={t.table.lastPage}
+                aria-label={t.table.lastPage}
               >
                 <ChevronsRight className="w-4 h-4" />
               </button>

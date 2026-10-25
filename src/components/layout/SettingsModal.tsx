@@ -11,8 +11,10 @@ import {
   RotateCcw,
   X,
   Check,
+  Languages,
 } from 'lucide-react'
 import { useSettingsStore } from '../../store/useSettingsStore'
+import { useTranslation } from '../../i18n/useTranslation'
 import { GlassButton } from '../ui/GlassButton'
 import { GlassCard } from '../ui/GlassCard'
 import { cn } from '../../lib/utils'
@@ -22,20 +24,14 @@ export interface SettingsModalProps {
   onClose: () => void
 }
 
-const INTERVAL_OPTIONS = [
-  { value: 0, label: 'Wyłączone' },
-  { value: 30, label: '30 sek.' },
-  { value: 60, label: '1 min.' },
-  { value: 300, label: '5 min.' },
-  { value: 600, label: '10 min.' },
-]
-
 const CONCURRENCY_OPTIONS = [1, 2, 3, 4, 5, 6]
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
   isOpen,
   onClose,
 }) => {
+  const { t, language, setLanguage } = useTranslation()
+
   const concurrency = useSettingsStore((s) => s.concurrency)
   const setConcurrency = useSettingsStore((s) => s.setConcurrency)
   const autoRefreshInterval = useSettingsStore((s) => s.autoRefreshInterval)
@@ -45,6 +41,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const resetSettings = useSettingsStore((s) => s.resetSettings)
 
   const isAutoRefreshActive = autoRefreshInterval > 0
+
+  const intervalOptions = [
+    { value: 0, label: t.settings.intervalDisabled },
+    { value: 30, label: t.settings.interval30s },
+    { value: 60, label: t.settings.interval1m },
+    { value: 300, label: t.settings.interval5m },
+    { value: 600, label: t.settings.interval10m },
+  ]
 
   if (typeof document === 'undefined') return null
 
@@ -91,10 +95,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         id="settings-modal-title"
                         className="text-lg font-bold text-slate-900 dark:text-white"
                       >
-                        Konfiguracja aplikacji
+                        {t.settings.title}
                       </h3>
                       <p className="text-xs text-slate-500 dark:text-slate-400">
-                        Dostosuj wydajność, wątki oraz synchronizację z Cloudflare API
+                        {t.settings.subtitle}
                       </p>
                     </div>
                   </div>
@@ -103,11 +107,61 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     type="button"
                     onClick={onClose}
                     className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer"
-                    aria-label="Zamknij"
+                    aria-label={t.common.close}
                   >
                     <X className="w-4 h-4" />
                   </button>
                 </div>
+
+                {/* Sekcja 0: Język interfejsu (Language) */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Languages className="w-4 h-4 text-[#f6821f]" />
+                      <span className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+                        {t.settings.languageTitle}
+                      </span>
+                    </div>
+                    <span className="text-xs font-mono font-medium text-slate-500 dark:text-slate-400">
+                      {language === 'en' ? 'English (EN)' : 'Polski (PL)'}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 p-1 rounded-xl bg-slate-200/50 dark:bg-slate-800/50 backdrop-blur-md border border-slate-200/80 dark:border-white/10">
+                    <button
+                      type="button"
+                      onClick={() => setLanguage('en')}
+                      className={cn(
+                        'py-2 px-3 rounded-lg text-xs font-semibold transition-all duration-200 cursor-pointer flex items-center justify-center gap-2',
+                        language === 'en'
+                          ? 'bg-gradient-to-br from-[#f6821f] to-[#ff9838] text-white shadow-md shadow-orange-500/25'
+                          : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-white/40 dark:hover:bg-slate-700/40'
+                      )}
+                    >
+                      <span>English (EN)</span>
+                      {language === 'en' && <Check className="w-3.5 h-3.5" />}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setLanguage('pl')}
+                      className={cn(
+                        'py-2 px-3 rounded-lg text-xs font-semibold transition-all duration-200 cursor-pointer flex items-center justify-center gap-2',
+                        language === 'pl'
+                          ? 'bg-gradient-to-br from-[#f6821f] to-[#ff9838] text-white shadow-md shadow-orange-500/25'
+                          : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-white/40 dark:hover:bg-slate-700/40'
+                      )}
+                    >
+                      <span>Polski (PL)</span>
+                      {language === 'pl' && <Check className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                    {t.settings.languageDesc}
+                  </p>
+                </div>
+
+                <div className="h-px bg-slate-200/70 dark:bg-white/10" />
 
                 {/* Sekcja 1: Wielowątkowość (Concurrency) */}
                 <div className="space-y-3">
@@ -115,12 +169,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     <div className="flex items-center gap-2">
                       <Cpu className="w-4 h-4 text-[#f6821f]" />
                       <span className="text-sm font-semibold text-slate-800 dark:text-slate-200">
-                        Wielowątkowość API (Concurrency)
+                        {t.settings.concurrencyTitle}
                       </span>
                     </div>
                     <span className="text-xs font-mono font-medium text-slate-500 dark:text-slate-400">
-                      Wątki:{' '}
-                      <strong className="text-[#f6821f]">{concurrency}</strong>
+                      {t.settings.threads(concurrency)}
                     </span>
                   </div>
 
@@ -149,7 +202,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                 isSelected ? 'text-white/90' : 'text-[#f6821f]'
                               )}
                             >
-                              optimum
+                              {t.settings.optimum}
                             </span>
                           )}
                         </button>
@@ -160,12 +213,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   {/* Informacja o optymalnej wartości */}
                   <div className="flex items-start gap-2.5 p-3 rounded-xl backdrop-blur-md bg-orange-500/[0.06] border border-orange-500/20 text-xs text-slate-600 dark:text-slate-300">
                     <Info className="w-4 h-4 text-[#f6821f] shrink-0 mt-0.5" />
-                    <p className="leading-relaxed">
-                      Wartość <strong className="text-[#f6821f]">2</strong> jest domyślna i
-                      optymalna pod kątem limitów Cloudflare API (1200 zapytań / 5 min). Wyższe
-                      wartości przyspieszają pobieranie setek domen, lecz mogą skutkować kodem HTTP
-                      429 (Rate Limit).
-                    </p>
+                    <p className="leading-relaxed">{t.settings.concurrencyInfo}</p>
                   </div>
                 </div>
 
@@ -177,20 +225,20 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     <div className="flex items-center gap-2">
                       <Clock className="w-4 h-4 text-[#f6821f]" />
                       <span className="text-sm font-semibold text-slate-800 dark:text-slate-200">
-                        Cykliczne odświeżanie (Auto-Refresh)
+                        {t.settings.autoRefreshTitle}
                       </span>
                     </div>
                     {isAutoRefreshActive && (
                       <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                        Aktywne
+                        {t.settings.active}
                       </span>
                     )}
                   </div>
 
                   {/* Wybór interwału czasu */}
                   <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-                    {INTERVAL_OPTIONS.map((opt) => {
+                    {intervalOptions.map((opt) => {
                       const isSelected = autoRefreshInterval === opt.value
                       return (
                         <button
@@ -219,7 +267,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     )}
                   >
                     <label className="text-xs font-semibold text-slate-600 dark:text-slate-400 block">
-                      Tryb synchronizacji danych:
+                      {t.settings.refreshModeTitle}:
                     </label>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -238,15 +286,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         <div className="flex items-center justify-between">
                           <span className="flex items-center gap-1.5 text-xs font-bold text-slate-900 dark:text-white">
                             <Zap className="w-3.5 h-3.5 text-[#f6821f]" />
-                            Tylko 1. strona
+                            {t.settings.deltaTitle}
                           </span>
                           {autoRefreshMode === 'first_page' && (
                             <Check className="w-3.5 h-3.5 text-[#f6821f]" />
                           )}
                         </div>
                         <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-normal">
-                          Quick Delta Sync – pobiera tylko 100 najnowszych reguł i aktualizuje je w
-                          pamięci bez obciążania limitów API.
+                          {t.settings.deltaDesc}
                         </p>
                       </button>
 
@@ -265,15 +312,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         <div className="flex items-center justify-between">
                           <span className="flex items-center gap-1.5 text-xs font-bold text-slate-900 dark:text-white">
                             <RefreshCw className="w-3.5 h-3.5 text-indigo-500" />
-                            Pełne odświeżenie
+                            {t.settings.fullTitle}
                           </span>
                           {autoRefreshMode === 'full' && (
                             <Check className="w-3.5 h-3.5 text-[#f6821f]" />
                           )}
                         </div>
                         <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-normal">
-                          Full Sync – pobiera ponownie wszystkie strony reguł dla wszystkich stref i
-                          kont.
+                          {t.settings.fullDesc}
                         </p>
                       </button>
                     </div>
@@ -288,11 +334,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     onClick={resetSettings}
                     leftIcon={<RotateCcw className="w-3.5 h-3.5" />}
                   >
-                    Przywróć domyślne
+                    {t.settings.restoreDefaults}
                   </GlassButton>
 
                   <GlassButton variant="primary" size="md" onClick={onClose}>
-                    Gotowe
+                    {t.settings.done}
                   </GlassButton>
                 </div>
               </div>

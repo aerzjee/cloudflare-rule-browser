@@ -19,6 +19,7 @@ import { ConfirmDeleteDialog } from './components/rules/ConfirmDeleteDialog'
 import { LandingPage } from './pages/LandingPage'
 import { useAuthStore, selectIsAuthenticated } from './store/useAuthStore'
 import { useAccessRulesQuery } from './hooks/useAccessRulesQuery'
+import { useTranslation } from './i18n/useTranslation'
 import type { NormalizedAccessRule } from './types/cloudflare'
 
 // Leniwe ładowanie tabeli reguł (Code-Splitting dla zalogowanego użytkownika)
@@ -59,6 +60,7 @@ export function App() {
 
 /** Main dashboard — rendered when authenticated */
 function Dashboard() {
+  const { t } = useTranslation()
   const accountLevelOnly = useAuthStore((s) => s.accountLevelOnly)
 
   // Real TanStack Query v5 hook
@@ -144,15 +146,15 @@ function Dashboard() {
               <Sparkles className="w-3.5 h-3.5" />
               <span>
                 {accountLevelOnly
-                  ? 'Tryb poziomu konta (Account Level)'
-                  : 'Tryb wszystkich domen (All Zones)'}
+                  ? t.dashboard.badgeAccount
+                  : t.dashboard.badgeZones}
               </span>
             </div>
             <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight text-slate-900 dark:text-white">
-              Cloudflare <span className="text-[#f6821f]">Access Rules</span>
+              {t.dashboard.heroTitle} <span className="text-[#f6821f]">{t.dashboard.heroTitleHighlight}</span>
             </h1>
             <p className="text-sm sm:text-base text-slate-600 dark:text-slate-400 max-w-2xl leading-relaxed">
-              Przeglądaj, filtruj i zarządzaj regułami IP Access Rules Cloudflare dla konta i domen.
+              {t.dashboard.heroDescription}
             </p>
           </div>
 
@@ -164,7 +166,7 @@ function Dashboard() {
               onClick={() => refetch()}
               leftIcon={<RefreshCw className="w-4 h-4" />}
             >
-              Odśwież dane
+              {t.common.refresh}
             </GlassButton>
           </div>
         </div>
@@ -178,13 +180,13 @@ function Dashboard() {
             <div className="flex items-start gap-3">
               <AlertCircle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
               <div className="space-y-1">
-                <h4 className="font-semibold text-sm">Wystąpił błąd podczas komunikacji z Cloudflare</h4>
+                <h4 className="font-semibold text-sm">Error</h4>
                 <p className="text-xs text-red-600 dark:text-red-400">
-                  {error?.message || 'Nie udało się pobrać reguł. Sprawdź ważność tokenu i uprawnienia.'}
+                  {error?.message || 'Failed to fetch rules.'}
                 </p>
                 <div className="pt-2">
                   <GlassButton variant="danger" size="xs" onClick={() => refetch()}>
-                    Spróbuj ponownie
+                    {t.common.refresh}
                   </GlassButton>
                 </div>
               </div>
@@ -198,7 +200,7 @@ function Dashboard() {
           <GlassCard hoverEffect glow className="p-5">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                Wszystkie reguły
+                {t.dashboard.statTotal}
               </span>
               <div className="p-2 rounded-xl bg-orange-500/10 text-[#f6821f]">
                 <Flame className="w-4 h-4" />
@@ -209,11 +211,11 @@ function Dashboard() {
                 {isLoading ? '...' : totalRulesCount}
               </span>
               <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
-                zsynchronizowane
+                {t.dashboard.rulesUnit}
               </span>
             </div>
             <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-              {accountLevelOnly ? 'Poziom konta Cloudflare' : 'Domeny i reguły globalne'}
+              {t.dashboard.statTotalDesc}
             </p>
           </GlassCard>
 
@@ -221,7 +223,7 @@ function Dashboard() {
           <GlassCard hoverEffect className="p-5">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                Blokady (Block)
+                {t.dashboard.statBlock}
               </span>
               <div className="p-2 rounded-xl bg-red-500/10 text-red-500">
                 <Ban className="w-4 h-4" />
@@ -231,10 +233,10 @@ function Dashboard() {
               <span className="text-3xl font-extrabold text-red-600 dark:text-red-400">
                 {isLoading ? '...' : blockCount}
               </span>
-              <span className="text-xs font-medium text-slate-500">reguł</span>
+              <span className="text-xs font-medium text-slate-500">{t.dashboard.rulesUnit}</span>
             </div>
             <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-              Blokowanie podejrzanych IP/ASN
+              {t.dashboard.statBlockDesc}
             </p>
           </GlassCard>
 
@@ -242,7 +244,7 @@ function Dashboard() {
           <GlassCard hoverEffect className="p-5">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                Biała lista (Whitelist)
+                {t.dashboard.statAllow}
               </span>
               <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-500">
                 <ShieldCheck className="w-4 h-4" />
@@ -252,10 +254,10 @@ function Dashboard() {
               <span className="text-3xl font-extrabold text-emerald-600 dark:text-emerald-400">
                 {isLoading ? '...' : whitelistCount}
               </span>
-              <span className="text-xs font-medium text-slate-500">reguł</span>
+              <span className="text-xs font-medium text-slate-500">{t.dashboard.rulesUnit}</span>
             </div>
             <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-              Zaufane adresy i partnerzy
+              {t.dashboard.statAllowDesc}
             </p>
           </GlassCard>
 
@@ -263,7 +265,7 @@ function Dashboard() {
           <GlassCard hoverEffect className="p-5">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                Wyzwania (Challenges)
+                {t.dashboard.statChallenge}
               </span>
               <div className="p-2 rounded-xl bg-amber-500/10 text-[#f6821f]">
                 <ShieldAlert className="w-4 h-4" />
@@ -273,10 +275,10 @@ function Dashboard() {
               <span className="text-3xl font-extrabold text-amber-600 dark:text-amber-400">
                 {isLoading ? '...' : challengeCount}
               </span>
-              <span className="text-xs font-medium text-slate-500">reguł</span>
+              <span className="text-xs font-medium text-slate-500">{t.dashboard.rulesUnit}</span>
             </div>
             <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-              Managed &amp; JS Challenges
+              {t.dashboard.statChallengeDesc}
             </p>
           </GlassCard>
         </section>

@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { Check, Loader2, Pencil, X } from 'lucide-react'
 import type { NormalizedAccessRule } from '../../types/cloudflare'
+import { useTranslation } from '../../i18n/useTranslation'
 import { useUpdateAccessRule } from '../../hooks/useUpdateAccessRule'
 import { cn } from '../../lib/utils'
 
@@ -15,6 +16,7 @@ export const InlineNoteEditor: React.FC<InlineNoteEditorProps> = ({
   className,
   onUpdate,
 }) => {
+  const { t } = useTranslation()
   const { mutateRule } = useUpdateAccessRule()
   const [isEditing, setIsEditing] = useState(false)
   const [text, setText] = useState(rule.notes || '')
@@ -61,7 +63,7 @@ export const InlineNoteEditor: React.FC<InlineNoteEditorProps> = ({
 
     // Walidacja limitu Cloudflare API (max 500 znaków)
     if (trimmed.length > 500) {
-      setError('Notatka może zawierać maksymalnie 500 znaków.')
+      setError(t.noteEditor.maxChars)
       return
     }
 
@@ -84,7 +86,7 @@ export const InlineNoteEditor: React.FC<InlineNoteEditorProps> = ({
       setIsEditing(false)
     } catch (err) {
       console.error('Błąd zapisu notatki:', err)
-      setError(err instanceof Error ? err.message : 'Błąd podczas zapisu notatki.')
+      setError(err instanceof Error ? err.message : t.noteEditor.saveError)
     } finally {
       setIsSaving(false)
     }
@@ -121,7 +123,7 @@ export const InlineNoteEditor: React.FC<InlineNoteEditorProps> = ({
                 if (error) setError(null)
               }}
               onKeyDown={handleKeyDown}
-              placeholder="Wpisz notatkę (max 500 znaków)..."
+              placeholder={t.noteEditor.placeholder}
               className={cn(
                 'w-full h-8 px-2.5 py-1 text-xs rounded-lg transition-all duration-200',
                 'backdrop-blur-md bg-white/90 dark:bg-slate-900/90',
@@ -143,8 +145,8 @@ export const InlineNoteEditor: React.FC<InlineNoteEditorProps> = ({
             type="button"
             onClick={handleSave}
             disabled={isSaving}
-            title="Zapisz notatkę (Enter)"
-            aria-label="Zapisz notatkę"
+            title={t.noteEditor.saveTooltip}
+            aria-label={t.common.save}
             className={cn(
               'p-1.5 rounded-lg transition-all duration-200 cursor-pointer shrink-0',
               'backdrop-blur-md bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30',
@@ -163,8 +165,8 @@ export const InlineNoteEditor: React.FC<InlineNoteEditorProps> = ({
             type="button"
             onClick={() => handleCancel()}
             disabled={isSaving}
-            title="Anuluj (Esc)"
-            aria-label="Anuluj edycję"
+            title={t.noteEditor.cancelTooltip}
+            aria-label={t.common.cancel}
             className={cn(
               'p-1.5 rounded-lg transition-all duration-200 cursor-pointer shrink-0',
               'backdrop-blur-md bg-slate-200/60 dark:bg-slate-800/60 text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 border border-slate-300/40 dark:border-white/10',
@@ -193,7 +195,7 @@ export const InlineNoteEditor: React.FC<InlineNoteEditorProps> = ({
         'hover:bg-slate-200/50 dark:hover:bg-slate-800/50',
         className
       )}
-      title="Kliknij, aby edytować notatkę"
+      title={t.noteEditor.clickToEdit}
     >
       {rule.notes ? (
         <span className="text-xs text-slate-700 dark:text-slate-300 truncate select-text">
@@ -201,7 +203,7 @@ export const InlineNoteEditor: React.FC<InlineNoteEditorProps> = ({
         </span>
       ) : (
         <span className="text-xs text-slate-400/80 italic group-hover/note:text-slate-600 dark:group-hover/note:text-slate-300 transition-colors">
-          Dodaj notatkę...
+          {t.noteEditor.addNote}
         </span>
       )}
 
