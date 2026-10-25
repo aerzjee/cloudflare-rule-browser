@@ -9,10 +9,12 @@ import {
   User,
   Globe,
   Building2,
+  GitBranch,
 } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useThemeStore } from '../../store/useThemeStore'
 import { useAuthStore, selectIsAuthenticated } from '../../store/useAuthStore'
+import { clearAllCachedRules } from '../../utils/rulesCache'
 import { GlassButton } from '../ui/GlassButton'
 import { GlassSwitch } from '../ui/GlassSwitch'
 import { cn } from '../../lib/utils'
@@ -26,7 +28,7 @@ export interface GlassNavbarProps {
 export const GlassNavbar: React.FC<GlassNavbarProps> = ({
   className,
   title = 'Cloudflare Rule Browser',
-  subtitle = 'v1.0.0',
+  subtitle,
 }) => {
   const { theme, toggleTheme } = useThemeStore()
   const isDark = theme === 'dark'
@@ -37,7 +39,12 @@ export const GlassNavbar: React.FC<GlassNavbarProps> = ({
   const logout = useAuthStore((s) => s.logout)
   const queryClient = useQueryClient()
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await clearAllCachedRules()
+    } catch (err) {
+      console.warn('Błąd czyszczenia cache przy wylogowaniu:', err)
+    }
     logout()
     queryClient.clear()
   }
@@ -64,13 +71,23 @@ export const GlassNavbar: React.FC<GlassNavbarProps> = ({
           </div>
 
           <div className="flex flex-col">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2.5">
               <span className="font-bold text-base sm:text-lg tracking-tight text-slate-900 dark:text-slate-100">
                 {title}
               </span>
-              <span className="hidden sm:inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-orange-500/10 text-[#f6821f] border border-orange-500/20">
-                {subtitle}
-              </span>
+              {subtitle ? (
+                <span className="hidden sm:inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-orange-500/10 text-[#f6821f] border border-orange-500/20">
+                  {subtitle}
+                </span>
+              ) : (
+                <span
+                  title={`Wersja: ${__APP_VERSION__}, Commit: ${__GIT_COMMIT__}`}
+                  className="hidden sm:inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-mono font-medium backdrop-blur-md bg-white/50 dark:bg-slate-900/40 border border-white/60 dark:border-white/10 text-slate-600 dark:text-slate-300 shadow-sm"
+                >
+                  <GitBranch className="w-3 h-3 text-[#f6821f]" />
+                  v{__APP_VERSION__} • {__GIT_COMMIT__}
+                </span>
+              )}
             </div>
             <span className="text-xs text-slate-500 dark:text-slate-400 hidden sm:block">
               WAF, Page Shield, Firewall &amp; Cache Rules Inspector

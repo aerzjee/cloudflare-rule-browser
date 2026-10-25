@@ -1,7 +1,12 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { fetchAccessRules } from '../api/accessRules'
 import { useAuthStore } from '../store/useAuthStore'
+import {
+  getCachedRules,
+  setCachedRules,
+  clearCachedRules,
+} from '../utils/rulesCache'
 import type {
   FetchProgress,
   NormalizedAccessRule,
@@ -15,6 +20,7 @@ export interface UseAccessRulesQueryResult {
   isError: boolean
   error: Error | null
   refetch: () => Promise<unknown>
+  forceRefresh: () => Promise<unknown>
   progress: FetchProgress
 }
 
@@ -22,6 +28,8 @@ export function useAccessRulesQuery(): UseAccessRulesQueryResult {
   const email = useAuthStore((s) => s.email)
   const token = useAuthStore((s) => s.token)
   const accountLevelOnly = useAuthStore((s) => s.accountLevelOnly)
+
+  const forceRefreshRef = useRef<boolean>(false)
 
   const [progress, setProgress] = useState<FetchProgress>({
     loaded: 0,
@@ -33,7 +41,24 @@ export function useAccessRulesQuery(): UseAccessRulesQueryResult {
   const query = useQuery<NormalizedAccessRule[], Error>({
     queryKey: ['cloudflare', 'access_rules', { email, accountLevelOnly }],
     queryFn: async () => {
-      // Reset progress at the start of fetch
+      // 1. Sprawdź cache IndexedDB jeśli nie wymuszono odświeżenia
+      if (!forceRefreshRef.current) {
+        const cached = await getCachedRules(accountLevelOnly)
+        if (cached && cached.length > 0) {
+          setProgress({
+            loaded: cached.length,
+            total: cached.length,
+            percentage: 100,
+            label: `Wczytano ${cached.length} reguł z pamięci IndexedDB.`,
+          })
+          return cached
+        }
+      }
+
+      // Reset flagi wymuszonego odświeżenia
+      forceRefreshRef.current = false
+
+      // 2. Pobierz świeże dane z Cloudflare API
       setProgress({
         loaded: 0,
         total: 100,
@@ -41,26 +66,36 @@ export function useAccessRulesQuery(): UseAccessRulesQueryResult {
         label: 'Inicjalizacja pobierania reguł Cloudflare...',
       })
 
-      return await fetchAccessRules({
+      const freshRules = await fetchAccessRules({
         accountLevelOnly,
         onProgress: setProgress,
       })
+
+      // 3. Zapisz w IndexedDB w tle
+      await setCachedRules(accountLevelOnly, freshRules)
+
+      return freshRules
     },
     enabled: Boolean(email && token),
-    staleTime: 2 * 60 * 1000, // 2 minutes
+    // Nieskończony czas świeżości – brak niepotrzebnych refetchy sieciowych
+    staleTime: Infinity,
+    gcTime: Infinity,
     refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
   })
 
-  // Explicit refetch handler that resets progress
-  const handleRefetch = useCallback(async () => {
+  // Wymuszone odświeżenie: czyści IndexedDB i pobiera z sieci z paskiem postępu
+  const forceRefresh = useCallback(async () => {
+    forceRefreshRef.current = true
+    await clearCachedRules(accountLevelOnly)
     setProgress({
       loaded: 0,
       total: 100,
       percentage: 5,
-      label: 'Odświeżanie danych Cloudflare...',
+      label: 'Wymuszone odświeżanie z Cloudflare API...',
     })
     return await query.refetch()
-  }, [query])
+  }, [accountLevelOnly, query])
 
   // Compute effective progress
   const effectiveProgress: FetchProgress = query.isFetching
@@ -88,7 +123,8 @@ export function useAccessRulesQuery(): UseAccessRulesQueryResult {
     isFetching: query.isFetching,
     isError: query.isError,
     error: query.error,
-    refetch: handleRefetch,
+    refetch: forceRefresh,
+    forceRefresh,
     progress: effectiveProgress,
   }
 }

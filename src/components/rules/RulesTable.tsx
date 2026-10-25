@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useRef, useEffect } from 'react'
+import { useAutoAnimate } from '@formkit/auto-animate/react'
 import {
   type ColumnDef,
   type OnChangeFn,
@@ -602,6 +603,18 @@ export const RulesTable: React.FC<RulesTableProps> = ({
     globalFilterFn,
   })
 
+  // Auto-animate na <tbody> dla płynnych przejść przy usuwaniu/filtrowaniu
+  const [tableBodyRef, enableAnimations] = useAutoAnimate<HTMLTableSectionElement>({
+    duration: 220,
+    easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
+  })
+
+  // Optymalizacja wydajności przy dużej liczbie wierszy
+  const renderedRowsCount = table.getRowModel().rows.length
+  useEffect(() => {
+    enableAnimations(renderedRowsCount <= 250)
+  }, [renderedRowsCount, enableAnimations])
+
   // Selected rules for bulk action
   const selectedRowModel = table.getSelectedRowModel()
   const selectedCount = selectedRowModel.rows.length
@@ -780,8 +793,11 @@ export const RulesTable: React.FC<RulesTableProps> = ({
               ))}
             </thead>
 
-            {/* Ciało tabeli */}
-            <tbody className="divide-y divide-slate-200/60 dark:divide-white/5 text-sm">
+            {/* Ciało tabeli z płynną animacją useAutoAnimate */}
+            <tbody
+              ref={tableBodyRef}
+              className="divide-y divide-slate-200/60 dark:divide-white/5 text-sm"
+            >
               {isLoading ? (
                 // Stan ładowania
                 Array.from({ length: 5 }).map((_, idx) => (

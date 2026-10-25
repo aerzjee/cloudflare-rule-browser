@@ -14,6 +14,10 @@ RUN npm ci
 # Copy application source code
 COPY . .
 
+# Pass commit hash into build environment
+ARG GIT_COMMIT=unknown
+ENV VITE_GIT_COMMIT=$GIT_COMMIT
+
 # Build Vite SPA production bundle to ./dist
 RUN npm run build
 

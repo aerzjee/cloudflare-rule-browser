@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 import { cryptoStorage } from '../utils/cryptoStorage'
+import { clearAllCachedRules } from '../utils/rulesCache'
 
 export type AuthType = 'bearer' | 'global_key'
 
@@ -50,6 +51,10 @@ export const useAuthStore = create<AuthState & AuthActions>()(
         set({ ...INITIAL_STATE })
         // Also explicitly remove the persisted key so nothing lingers
         cryptoStorage.removeItem(AUTH_STORAGE_NAME)
+        // Clear all cached rules from IndexedDB
+        clearAllCachedRules().catch((err) =>
+          console.warn('[useAuthStore] Błąd czyszczenia cache IndexedDB:', err)
+        )
       },
 
       setAccountLevelOnly: (value: boolean) => set({ accountLevelOnly: value }),
