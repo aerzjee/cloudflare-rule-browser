@@ -87,6 +87,12 @@ export const InlineModeDropdown: React.FC<InlineModeDropdownProps> = ({
   const { mutateRule } = useUpdateAccessRule()
   const [isOpen, setIsOpen] = useState(false)
   const [isUpdating, setIsUpdating] = useState(false)
+  const [justUpdated, setJustUpdated] = useState(false)
+  const [showSuccessText, setShowSuccessText] = useState(false)
+
+  const successTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
   const [coords, setCoords] = useState<{ top: number; left: number; showAbove: boolean }>({
     top: 0,
     left: 0,
@@ -95,6 +101,14 @@ export const InlineModeDropdown: React.FC<InlineModeDropdownProps> = ({
 
   const buttonRef = useRef<HTMLButtonElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
+
+  // Czyszczenie timerów mikroanimacji przy unmount
+  useEffect(() => {
+    return () => {
+      if (successTimerRef.current) clearTimeout(successTimerRef.current)
+      if (resetTimerRef.current) clearTimeout(resetTimerRef.current)
+    }
+  }, [])
 
   const currentMode = rule.mode.toLowerCase() as CloudflareAccessRuleMode
   const currentConfig: ModeConfig =
@@ -188,6 +202,21 @@ export const InlineModeDropdown: React.FC<InlineModeDropdownProps> = ({
       } else {
         await mutateRule(rule, { mode: modeKey })
       }
+
+      // Animacja potwierdzenia sukcesu
+      if (successTimerRef.current) clearTimeout(successTimerRef.current)
+      if (resetTimerRef.current) clearTimeout(resetTimerRef.current)
+
+      setJustUpdated(true)
+      setShowSuccessText(true)
+
+      successTimerRef.current = setTimeout(() => {
+        setShowSuccessText(false)
+      }, 650)
+
+      resetTimerRef.current = setTimeout(() => {
+        setJustUpdated(false)
+      }, 950)
     } catch (err) {
       console.error('Błąd podczas aktualizacji trybu reguły:', err)
     } finally {
@@ -197,8 +226,8 @@ export const InlineModeDropdown: React.FC<InlineModeDropdownProps> = ({
 
   return (
     <div className={cn('relative inline-flex items-center', className)}>
-      {/* Przycisk badge akcji w wierszu */}
-      <button
+      {/* Przycisk badge akcji w wierszu z mikroanimacją elastyczną */}
+      <motion.button
         ref={buttonRef}
         type="button"
         onClick={toggleDropdown}
@@ -206,27 +235,78 @@ export const InlineModeDropdown: React.FC<InlineModeDropdownProps> = ({
         title="Kliknij, aby zmienić akcję reguły (inline edit)"
         aria-haspopup="listbox"
         aria-expanded={isOpen}
+        animate={
+          justUpdated
+            ? { scale: [1, 1.12, 0.97, 1] }
+            : { scale: 1 }
+        }
+        transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
         className={cn(
-          'group inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold',
-          'backdrop-blur-md border shadow-sm transition-all duration-200 cursor-pointer select-none',
+          'relative group inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold',
+          'backdrop-blur-md border shadow-sm transition-colors duration-200 cursor-pointer select-none',
           'active:scale-95 hover:shadow-md',
           currentConfig.badgeClass,
-          isUpdating && 'opacity-70 cursor-wait'
+          isUpdating && 'opacity-80 cursor-wait'
         )}
       >
-        {isUpdating ? (
-          <Loader2 className="w-3.5 h-3.5 animate-spin text-current" />
-        ) : (
-          <Icon className="w-3.5 h-3.5" />
+        {/* Rozchodzący się i gasnący pierścień/glow w kolorze wybranego trybu */}
+        {justUpdated && (
+          <motion.span
+            key="glow-ring"
+            initial={{ opacity: 0.75, scale: 0.95 }}
+            animate={{ opacity: 0, scale: 1.35 }}
+            transition={{ duration: 0.65, ease: 'easeOut' }}
+            className="pointer-events-none absolute inset-0 rounded-lg border-2 border-current"
+          />
         )}
-        <span>{currentConfig.label}</span>
+
+        <AnimatePresence mode="wait" initial={false}>
+          {isUpdating ? (
+            <motion.span
+              key="updating"
+              initial={{ opacity: 0, scale: 0.85 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.85 }}
+              transition={{ duration: 0.15 }}
+              className="inline-flex items-center gap-1.5"
+            >
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-current" />
+              <span>Zapisywanie...</span>
+            </motion.span>
+          ) : showSuccessText ? (
+            <motion.span
+              key="success"
+              initial={{ opacity: 0, scale: 0.5 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.85 }}
+              transition={{ type: 'spring', stiffness: 500, damping: 25 }}
+              className="inline-flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-bold"
+            >
+              <Check className="w-3.5 h-3.5 stroke-[3]" />
+              <span>Zapisano</span>
+            </motion.span>
+          ) : (
+            <motion.span
+              key={`mode-${currentMode}`}
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              transition={{ duration: 0.15 }}
+              className="inline-flex items-center gap-1.5"
+            >
+              <Icon className="w-3.5 h-3.5" />
+              <span>{currentConfig.label}</span>
+            </motion.span>
+          )}
+        </AnimatePresence>
+
         <ChevronDown
           className={cn(
-            'w-3 h-3 opacity-60 group-hover:opacity-100 transition-transform duration-200',
+            'w-3 h-3 opacity-60 group-hover:opacity-100 transition-transform duration-200 shrink-0',
             isOpen && 'rotate-180'
           )}
         />
-      </button>
+      </motion.button>
 
       {/* Szklany Dropdown renderowany przez Portal do document.body */}
       {typeof document !== 'undefined' &&

@@ -1,4 +1,5 @@
 import React from 'react'
+import { createPortal } from 'react-dom'
 import { AnimatePresence, motion } from 'motion/react'
 import {
   Settings,
@@ -45,14 +46,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   const isAutoRefreshActive = autoRefreshInterval > 0
 
-  return (
+  if (typeof document === 'undefined') return null
+
+  return createPortal(
     <AnimatePresence>
       {isOpen && (
         <div
           role="dialog"
           aria-modal="true"
           aria-labelledby="settings-modal-title"
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto"
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4 overflow-y-auto"
         >
           {/* Tło (backdrop) */}
           <motion.div
@@ -297,7 +300,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           </motion.div>
         </div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   )
 }
 

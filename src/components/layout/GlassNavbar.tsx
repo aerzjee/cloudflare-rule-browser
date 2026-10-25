@@ -45,8 +45,14 @@ export const GlassNavbar: React.FC<GlassNavbarProps> = ({
 
   // Stan modala ustawień i subskrypcja auto-odświeżania
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
+  const [hasOpenedSettings, setHasOpenedSettings] = useState(false)
   const autoRefreshInterval = useSettingsStore((s) => s.autoRefreshInterval)
   const autoRefreshMode = useSettingsStore((s) => s.autoRefreshMode)
+
+  const handleOpenSettings = () => {
+    setHasOpenedSettings(true)
+    setIsSettingsOpen(true)
+  }
 
   const formatIntervalLabel = (sec: number): string => {
     if (sec >= 60) return `${Math.round(sec / 60)}m`
@@ -146,7 +152,7 @@ export const GlassNavbar: React.FC<GlassNavbarProps> = ({
           <div className="flex items-center gap-1.5">
             <button
               type="button"
-              onClick={() => setIsSettingsOpen(true)}
+              onClick={handleOpenSettings}
               title={
                 autoRefreshInterval > 0
                   ? `Ustawienia (Auto-Refresh: co ${formatIntervalLabel(autoRefreshInterval)}, tryb: ${autoRefreshMode === 'first_page' ? 'Delta' : 'Pełny'})`
@@ -175,7 +181,7 @@ export const GlassNavbar: React.FC<GlassNavbarProps> = ({
             {autoRefreshInterval > 0 && (
               <button
                 type="button"
-                onClick={() => setIsSettingsOpen(true)}
+                onClick={handleOpenSettings}
                 title="Kliknij, aby zmienić ustawienia cyklicznego odświeżania"
                 className="hidden xl:inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-mono font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 cursor-pointer hover:bg-emerald-500/20 transition-colors"
               >
@@ -243,7 +249,7 @@ export const GlassNavbar: React.FC<GlassNavbarProps> = ({
       </div>
 
       {/* Modal konfiguracji aplikacji ładowany asynchronicznie przez Suspense */}
-      {isSettingsOpen && (
+      {hasOpenedSettings && (
         <Suspense fallback={null}>
           <SettingsModal
             isOpen={isSettingsOpen}

@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { createPortal } from 'react-dom'
 import { AnimatePresence, motion } from 'motion/react'
 import {
   AlertTriangle,
@@ -102,14 +103,16 @@ export const ConfirmDeleteDialog: React.FC<ConfirmDeleteDialogProps> = ({
   const isSingle = count === 1
   const singleRule = rules[0]
 
-  return (
+  if (typeof document === 'undefined') return null
+
+  return createPortal(
     <AnimatePresence>
       {isOpen && rules.length > 0 && (
         <div
           role="dialog"
           aria-modal="true"
           aria-labelledby="confirm-delete-title"
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto"
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4 overflow-y-auto"
         >
           {/* Tło (backdrop) z płynną animacją */}
           <motion.div
@@ -329,7 +332,8 @@ export const ConfirmDeleteDialog: React.FC<ConfirmDeleteDialogProps> = ({
           </motion.div>
         </div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   )
 }
 
