@@ -1,0 +1,119 @@
+{
+  "latestVersion": "1.0.0",
+  "latestCommit": "c129cba",
+  "generatedAt": "2026-10-25T22:48:25.873Z",
+  "releases": [
+    {
+      "version": "1.0.0",
+      "tag": "v1.0.0",
+      "commit": "c129cba",
+      "date": "2026-10-25",
+      "changes": [
+        {
+          "hash": "c129cba",
+          "date": "2026-10-25",
+          "type": "fix",
+          "scope": "ui",
+          "message": "render SettingsModal via React Portal to body and add success pulse animation on mode change"
+        },
+        {
+          "hash": "dc2c88d",
+          "date": "2026-10-25",
+          "type": "perf",
+          "scope": "build,lint",
+          "message": "implement lazy loading post-login, configure Rolldown vendor chunks, and resolve oxlint warnings"
+        },
+        {
+          "hash": "a094f2b",
+          "date": "2026-10-25",
+          "type": "feat",
+          "scope": "rules",
+          "message": "add inline mode dropdown with Cloudflare status colors and inline note editing"
+        },
+        {
+          "hash": "692ff4a",
+          "date": "2026-10-25",
+          "type": "feat",
+          "scope": "api",
+          "message": "add multi-threaded pagination with configurable concurrency and first-page delta auto-refresh"
+        },
+        {
+          "hash": "9ce8847",
+          "date": "2026-10-25",
+          "type": "feat",
+          "scope": "settings,ui",
+          "message": "remove UI preview section, clean up toolbar, and add settings modal in navbar"
+        },
+        {
+          "hash": "8480da6",
+          "date": "2026-10-25",
+          "type": "feat",
+          "scope": "ui,cache",
+          "message": "add IndexedDB rules cache, smooth UI/table animations, and build version badge"
+        },
+        {
+          "hash": "b9f380a",
+          "date": "2026-10-25",
+          "type": "fix",
+          "scope": "rules",
+          "message": "properly handle account-level scope in normalization, table display, and deletion"
+        },
+        {
+          "hash": "af11ae2",
+          "date": "2026-10-25",
+          "type": "fix",
+          "scope": "ui,csp",
+          "message": "implement granular loading progress for account/zone modes and resolve CSP eval violation"
+        },
+        {
+          "hash": "06c5975",
+          "date": "2026-10-25",
+          "type": "feat",
+          "scope": "server",
+          "message": "add Hono reverse proxy microservice with security headers and multi-stage Dockerfile"
+        },
+        {
+          "hash": "cda6dd5",
+          "date": "2026-10-25",
+          "type": "feat",
+          "scope": "rules",
+          "message": "add single and bulk rule deletion with concurrency control and progress feedback"
+        },
+        {
+          "hash": "43154b7",
+          "date": "2026-10-25",
+          "type": "feat",
+          "scope": "table",
+          "message": "build glassmorphic rules table with sorting, filtering, and row selection"
+        },
+        {
+          "hash": "30d96b6",
+          "date": "2026-10-25",
+          "type": "feat",
+          "scope": "api",
+          "message": "implement Cloudflare API client with pagination and concurrency-limited rule fetching"
+        },
+        {
+          "hash": "61c4eb5",
+          "date": "2026-10-25",
+          "type": "feat",
+          "scope": "rules",
+          "message": "add single and bulk rule deletion with concurrency control and progress feedback"
+        },
+        {
+          "hash": "1230940",
+          "date": "2026-10-25",
+          "type": "feat",
+          "scope": "ui",
+          "message": "implement glassmorphism design system and dark/light theme store"
+        },
+        {
+          "hash": "819f977",
+          "date": "2026-10-25",
+          "type": "chore",
+          "message": "bootstrap React 19.3 + Vite 8 + Tailwind v4.3 with Cloudflare API proxy"
+        }
+      ]
+    }
+  ]
+}

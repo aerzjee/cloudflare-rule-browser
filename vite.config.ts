@@ -5,20 +5,63 @@ import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
 
-// Pobranie hasha commita git lub fallback ze zmiennej środowiskowej
-let gitCommit = process.env.VITE_GIT_COMMIT || 'dev'
-try {
-  gitCommit = execSync('git rev-parse --short HEAD').toString().trim()
-} catch {
-  // Ignoruj błąd gdy git nie jest dostępny (np. w środowisku Docker bez .git)
+// 1. Pobranie wersji aplikacji:
+// VITE_APP_VERSION -> git describe --tags --abbrev=0 (bez 'v') -> package.json version -> '1.0.0'
+let appVersion = process.env.VITE_APP_VERSION
+if (!appVersion) {
+  try {
+    const latestTag = execSync('git describe --tags --abbrev=0', {
+      stdio: ['ignore', 'pipe', 'ignore'],
+    })
+      .toString()
+      .trim()
+    if (latestTag) {
+      appVersion = latestTag.replace(/^v/, '')
+    }
+  } catch {
+    // Brak tagów lub brak gita
+  }
+}
+if (!appVersion) {
+  try {
+    const pkg = JSON.parse(readFileSync(resolve(process.cwd(), 'package.json'), 'utf-8'))
+    appVersion = pkg.version || '1.0.0'
+  } catch {
+    appVersion = '1.0.0'
+  }
 }
 
-let appVersion = '1.0.0'
-try {
-  const pkg = JSON.parse(readFileSync(resolve(process.cwd(), 'package.json'), 'utf-8'))
-  appVersion = process.env.VITE_APP_VERSION || pkg.version || '1.0.0'
-} catch {
-  appVersion = process.env.VITE_APP_VERSION || '1.0.0'
+// 2. Pobranie hasha commita git:
+// VITE_GIT_COMMIT -> commit przypisany do ostatniego taga -> git rev-parse --short HEAD -> 'dev'
+let gitCommit = process.env.VITE_GIT_COMMIT
+if (!gitCommit) {
+  try {
+    const latestTag = execSync('git describe --tags --abbrev=0', {
+      stdio: ['ignore', 'pipe', 'ignore'],
+    })
+      .toString()
+      .trim()
+    if (latestTag) {
+      gitCommit = execSync(`git rev-list -n 1 ${latestTag} --abbrev-commit`, {
+        stdio: ['ignore', 'pipe', 'ignore'],
+      })
+        .toString()
+        .trim()
+    }
+  } catch {
+    // Brak tagów
+  }
+}
+if (!gitCommit) {
+  try {
+    gitCommit = execSync('git rev-parse --short HEAD', {
+      stdio: ['ignore', 'pipe', 'ignore'],
+    })
+      .toString()
+      .trim()
+  } catch {
+    gitCommit = 'dev'
+  }
 }
 
 // https://vite.dev/config/

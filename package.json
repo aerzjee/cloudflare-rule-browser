@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "changelog": "node scripts/generate-changelog.mjs",
+    "build": "node scripts/generate-changelog.mjs && tsc -b && vite build",
     "start": "node --import tsx server/index.ts",
     "preview:prod": "npm run build && npm run start",
     "lint": "oxlint",

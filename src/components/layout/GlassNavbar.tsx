@@ -22,6 +22,7 @@ import { GlassSwitch } from '../ui/GlassSwitch'
 import { cn } from '../../lib/utils'
 
 const SettingsModal = lazy(() => import('./SettingsModal'))
+const ChangelogModal = lazy(() => import('./ChangelogModal'))
 
 export interface GlassNavbarProps {
   className?: string
@@ -49,9 +50,18 @@ export const GlassNavbar: React.FC<GlassNavbarProps> = ({
   const autoRefreshInterval = useSettingsStore((s) => s.autoRefreshInterval)
   const autoRefreshMode = useSettingsStore((s) => s.autoRefreshMode)
 
+  // Stan modala changelog
+  const [isChangelogOpen, setIsChangelogOpen] = useState(false)
+  const [hasOpenedChangelog, setHasOpenedChangelog] = useState(false)
+
   const handleOpenSettings = () => {
     setHasOpenedSettings(true)
     setIsSettingsOpen(true)
+  }
+
+  const handleOpenChangelog = () => {
+    setHasOpenedChangelog(true)
+    setIsChangelogOpen(true)
   }
 
   const formatIntervalLabel = (sec: number): string => {
@@ -100,13 +110,16 @@ export const GlassNavbar: React.FC<GlassNavbarProps> = ({
                   {subtitle}
                 </span>
               ) : (
-                <span
-                  title={`Wersja: ${__APP_VERSION__}, Commit: ${__GIT_COMMIT__}`}
-                  className="hidden sm:inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-mono font-medium backdrop-blur-md bg-white/50 dark:bg-slate-900/40 border border-white/60 dark:border-white/10 text-slate-600 dark:text-slate-300 shadow-sm"
+                <button
+                  type="button"
+                  onClick={handleOpenChangelog}
+                  title="Zobacz historię zmian (Changelog)"
+                  aria-label="Otwórz historię zmian aplikacji"
+                  className="hidden sm:inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-mono font-medium backdrop-blur-md bg-white/50 dark:bg-slate-900/40 hover:bg-white/80 dark:hover:bg-slate-800/60 border border-white/60 dark:border-white/10 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white shadow-sm cursor-pointer transition-all active:scale-95"
                 >
                   <GitBranch className="w-3 h-3 text-[#f6821f]" />
                   v{__APP_VERSION__} • {__GIT_COMMIT__}
-                </span>
+                </button>
               )}
             </div>
             <span className="text-xs text-slate-500 dark:text-slate-400 hidden sm:block">
@@ -254,6 +267,16 @@ export const GlassNavbar: React.FC<GlassNavbarProps> = ({
           <SettingsModal
             isOpen={isSettingsOpen}
             onClose={() => setIsSettingsOpen(false)}
+          />
+        </Suspense>
+      )}
+
+      {/* Modal historii zmian changelog ładowany asynchronicznie przez Suspense */}
+      {hasOpenedChangelog && (
+        <Suspense fallback={null}>
+          <ChangelogModal
+            isOpen={isChangelogOpen}
+            onClose={() => setIsChangelogOpen(false)}
           />
         </Suspense>
       )}
