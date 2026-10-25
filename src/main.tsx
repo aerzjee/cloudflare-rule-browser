@@ -1,3 +1,8 @@
+import { z } from 'zod'
+
+// Disable JIT compilation in Zod v4 to prevent CSP violation 'unsafe-eval' (script-src 'self')
+z.config({ jitless: true })
+
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'

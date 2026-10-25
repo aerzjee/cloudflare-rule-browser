@@ -84,10 +84,11 @@ export interface NormalizedAccessRule {
   accountId?: string
 }
 
-export interface AccessRulesFetchProgress {
-  stage: 'idle' | 'accounts' | 'zones' | 'rules' | 'complete'
-  current: number
+export interface FetchProgress {
+  loaded: number
   total: number
   percentage: number
-  message?: string
+  label: string
 }
+
+export type AccessRulesFetchProgress = FetchProgress

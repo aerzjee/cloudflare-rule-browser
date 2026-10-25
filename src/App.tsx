@@ -25,6 +25,7 @@ import {
 import { GlassButton } from './components/ui/GlassButton'
 import { GlassInput } from './components/ui/GlassInput'
 import { GlassSwitch } from './components/ui/GlassSwitch'
+import { ProgressBar } from './components/ui/ProgressBar'
 import { RulesTable } from './components/rules/RulesTable'
 import { BulkActionBar } from './components/rules/BulkActionBar'
 import { ConfirmDeleteDialog } from './components/rules/ConfirmDeleteDialog'
@@ -166,25 +167,7 @@ function Dashboard() {
         </div>
 
         {/* Progress indicator during fetching */}
-        {isFetching && progress.stage !== 'complete' && progress.stage !== 'idle' && (
-          <GlassCard className="p-4 border-orange-500/30 dark:border-orange-500/20 shadow-lg animate-in fade-in">
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-xs font-semibold">
-                <span className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
-                  <RefreshCw className="w-3.5 h-3.5 animate-spin text-[#f6821f]" />
-                  {progress.message || 'Pobieranie danych z Cloudflare...'}
-                </span>
-                <span className="font-mono text-[#f6821f]">{progress.percentage}%</span>
-              </div>
-              <div className="w-full h-2 rounded-full bg-slate-200/80 dark:bg-slate-800/80 overflow-hidden">
-                <div
-                  className="h-full bg-gradient-to-r from-[#f6821f] to-amber-500 transition-all duration-300 rounded-full"
-                  style={{ width: `${progress.percentage}%` }}
-                />
-              </div>
-            </div>
-          </GlassCard>
-        )}
+        <ProgressBar progress={progress} isVisible={isFetching} />
 
         {/* Error notification if API fails */}
         {isError && (

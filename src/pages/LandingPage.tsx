@@ -1,5 +1,8 @@
 import React, { useState, useCallback } from 'react'
 import { z } from 'zod'
+
+// Disable JIT compilation in Zod v4 to comply with strict CSP (no eval/new Function)
+z.config({ jitless: true })
 import {
   Cloud,
   KeyRound,

@@ -1,20 +1,22 @@
 import pLimit from 'p-limit'
 import { cfFetch } from './cfClient'
 import type {
-  AccessRulesFetchProgress,
   CloudflareAccessRule,
   CloudflareAccount,
   CloudflareZone,
+  FetchProgress,
   NormalizedAccessRule,
 } from '../types/cloudflare'
 
 /**
  * Helper to fetch all pages from a paginated Cloudflare endpoint.
  * Fetches page 1, reads `result_info.total_pages`, and fetches subsequent pages in sequence.
+ * Optionally reports per-page progress via onPageProgress.
  */
 export async function fetchAllPages<T>(
   endpoint: string,
-  defaultPerPage: number = 100
+  defaultPerPage: number = 100,
+  onPageProgress?: (page: number, totalPages: number) => void
 ): Promise<T[]> {
   const urlObj = new URL(endpoint, 'http://localhost')
 
@@ -36,6 +38,8 @@ export async function fetchAllPages<T>(
         )
       : 1)
 
+  onPageProgress?.(1, totalPages)
+
   if (totalPages > 1) {
     for (let page = 2; page <= totalPages; page++) {
       urlObj.searchParams.set('page', String(page))
@@ -44,6 +48,7 @@ export async function fetchAllPages<T>(
       if (nextRes.result && Array.isArray(nextRes.result)) {
         items.push(...nextRes.result)
       }
+      onPageProgress?.(page, totalPages)
     }
   }
 
@@ -85,12 +90,12 @@ export function normalizeAccessRule(
 
 export interface FetchAccessRulesOptions {
   accountLevelOnly?: boolean
-  onProgress?: (progress: AccessRulesFetchProgress) => void
+  onProgress?: (progress: FetchProgress) => void
 }
 
 /**
  * Fetches all access rules from Cloudflare API.
- * - If accountLevelOnly === true: fetches accounts, then fetches rules for each account.
+ * - If accountLevelOnly === true: fetches accounts, then fetches rules for each account with page progress.
  * - If accountLevelOnly === false: fetches zones, then concurrently fetches rules for each zone with p-limit(5).
  * Deduplicates account rules and zone rules using a Map with specified keys.
  */
@@ -101,42 +106,47 @@ export async function fetchAccessRules(
   const rulesMap = new Map<string, NormalizedAccessRule>()
 
   if (accountLevelOnly) {
-    // 2a: Pobierz konta (GET /api/cf/accounts), a następnie reguły dla kont
+    // 2a: Pobierz konta (GET /api/cf/accounts)
     onProgress?.({
-      stage: 'accounts',
-      current: 0,
-      total: 1,
+      loaded: 0,
+      total: 100,
       percentage: 10,
-      message: 'Pobieranie listy kont Cloudflare...',
+      label: 'Pobieranie listy kont Cloudflare...',
     })
 
     const accounts = await fetchAllPages<CloudflareAccount>('/accounts', 50)
 
     if (accounts.length === 0) {
       onProgress?.({
-        stage: 'complete',
-        current: 0,
+        loaded: 0,
         total: 0,
         percentage: 100,
-        message: 'Brak dostępnych kont Cloudflare dla bieżącego tokenu.',
+        label: 'Brak dostępnych kont Cloudflare dla bieżącego tokenu.',
       })
       return []
     }
 
-    let processedAccounts = 0
-    for (const account of accounts) {
-      onProgress?.({
-        stage: 'rules',
-        current: processedAccounts,
-        total: accounts.length,
-        percentage: Math.round((processedAccounts / accounts.length) * 100),
-        message: `Pobieranie reguł konta: ${account.name} (${processedAccounts + 1}/${accounts.length})...`,
-      })
+    onProgress?.({
+      loaded: 25,
+      total: 100,
+      percentage: 25,
+      label: 'Pobieranie reguł dla konta...',
+    })
 
+    for (const account of accounts) {
       try {
         const rules = await fetchAllPages<CloudflareAccessRule>(
           `/accounts/${account.id}/firewall/access_rules/rules?per_page=100`,
-          100
+          100,
+          (page, totalPages) => {
+            const percentage = Math.min(100, 25 + Math.round((page / totalPages) * 75))
+            onProgress?.({
+              loaded: page,
+              total: totalPages,
+              percentage,
+              label: `Pobieranie reguł konta (strona ${page} z ${totalPages})...`,
+            })
+          }
         )
 
         for (const rule of rules) {
@@ -148,17 +158,14 @@ export async function fetchAccessRules(
         }
       } catch (err) {
         console.warn(`Błąd podczas pobierania reguł konta ${account.name} (${account.id}):`, err)
-      } finally {
-        processedAccounts++
       }
     }
 
     onProgress?.({
-      stage: 'complete',
-      current: accounts.length,
-      total: accounts.length,
+      loaded: 100,
+      total: 100,
       percentage: 100,
-      message: `Pobrano ${rulesMap.size} reguł na poziomie konta.`,
+      label: `Pobrano ${rulesMap.size} reguł konta.`,
     })
 
     return Array.from(rulesMap.values())
@@ -167,11 +174,10 @@ export async function fetchAccessRules(
   // 2b: Jeśli accountLevelOnly === false:
   // Pobierz wszystkie domeny (GET /api/cf/zones?per_page=50)
   onProgress?.({
-    stage: 'zones',
-    current: 0,
-    total: 1,
-    percentage: 15,
-    message: 'Pobieranie listy domen (stref) Cloudflare...',
+    loaded: 0,
+    total: 100,
+    percentage: 10,
+    label: 'Pobieranie listy domen...',
   })
 
   const zones = await fetchAllPages<CloudflareZone>('/zones?per_page=50', 50)
@@ -179,11 +185,10 @@ export async function fetchAccessRules(
   // Jeśli brak domen na koncie, sprawdźmy reguły konta
   if (zones.length === 0) {
     onProgress?.({
-      stage: 'accounts',
-      current: 0,
-      total: 1,
+      loaded: 50,
+      total: 100,
       percentage: 50,
-      message: 'Brak domen. Pobieranie reguł poziomu konta...',
+      label: 'Brak domen. Pobieranie reguł poziomu konta...',
     })
 
     const accounts = await fetchAllPages<CloudflareAccount>('/accounts', 50)
@@ -205,11 +210,10 @@ export async function fetchAccessRules(
     }
 
     onProgress?.({
-      stage: 'complete',
-      current: 1,
-      total: 1,
+      loaded: 100,
+      total: 100,
       percentage: 100,
-      message: `Pobrano ${rulesMap.size} reguł.`,
+      label: `Pobrano ${rulesMap.size} reguł.`,
     })
 
     return Array.from(rulesMap.values())
@@ -217,14 +221,14 @@ export async function fetchAccessRules(
 
   // Pobierz reguły równolegle dla każdej domeny z ograniczeniem p-limit(5)
   const limit = pLimit(5)
+  const totalZones = zones.length
   let completedZones = 0
 
   onProgress?.({
-    stage: 'rules',
-    current: 0,
-    total: zones.length,
-    percentage: 20,
-    message: `Rozpoczynanie pobierania reguł dla ${zones.length} domen (limit równoległości: 5)...`,
+    loaded: 0,
+    total: totalZones,
+    percentage: 15,
+    label: `Rozpoczynanie pobierania reguł dla ${totalZones} domen...`,
   })
 
   const tasks = zones.map((zone) =>
@@ -267,13 +271,12 @@ export async function fetchAccessRules(
         )
       } finally {
         completedZones++
-        const percent = Math.round(20 + (completedZones / zones.length) * 80)
+        const percentage = Math.min(100, 15 + Math.round((completedZones / totalZones) * 85))
         onProgress?.({
-          stage: 'rules',
-          current: completedZones,
-          total: zones.length,
-          percentage: Math.min(100, percent),
-          message: `Pobrano reguły dla strefy ${zone.name} (${completedZones}/${zones.length})`,
+          loaded: completedZones,
+          total: totalZones,
+          percentage,
+          label: `Pobrano domeny: ${completedZones} / ${totalZones} (${zone.name})`,
         })
       }
     })
@@ -282,11 +285,10 @@ export async function fetchAccessRules(
   await Promise.all(tasks)
 
   onProgress?.({
-    stage: 'complete',
-    current: zones.length,
-    total: zones.length,
+    loaded: totalZones,
+    total: totalZones,
     percentage: 100,
-    message: `Ukończono. Znaleziono łącznie ${rulesMap.size} unikalnych reguł.`,
+    label: `Ukończono pobieranie reguł dla wszystkich domen (${rulesMap.size} reguł).`,
   })
 
   return Array.from(rulesMap.values())

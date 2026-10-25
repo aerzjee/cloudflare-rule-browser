@@ -1,9 +1,9 @@
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { fetchAccessRules } from '../api/accessRules'
 import { useAuthStore } from '../store/useAuthStore'
 import type {
-  AccessRulesFetchProgress,
+  FetchProgress,
   NormalizedAccessRule,
 } from '../types/cloudflare'
 
@@ -15,7 +15,7 @@ export interface UseAccessRulesQueryResult {
   isError: boolean
   error: Error | null
   refetch: () => Promise<unknown>
-  progress: AccessRulesFetchProgress
+  progress: FetchProgress
 }
 
 export function useAccessRulesQuery(): UseAccessRulesQueryResult {
@@ -23,23 +23,22 @@ export function useAccessRulesQuery(): UseAccessRulesQueryResult {
   const token = useAuthStore((s) => s.token)
   const accountLevelOnly = useAuthStore((s) => s.accountLevelOnly)
 
-  const [progress, setProgress] = useState<AccessRulesFetchProgress>({
-    stage: 'idle',
-    current: 0,
-    total: 0,
+  const [progress, setProgress] = useState<FetchProgress>({
+    loaded: 0,
+    total: 100,
     percentage: 0,
-    message: '',
+    label: '',
   })
 
   const query = useQuery<NormalizedAccessRule[], Error>({
     queryKey: ['cloudflare', 'access_rules', { email, accountLevelOnly }],
     queryFn: async () => {
+      // Reset progress at the start of fetch
       setProgress({
-        stage: 'idle',
-        current: 0,
-        total: 0,
-        percentage: 0,
-        message: 'Inicjalizacja pobierania reguł Cloudflare...',
+        loaded: 0,
+        total: 100,
+        percentage: 5,
+        label: 'Inicjalizacja pobierania reguł Cloudflare...',
       })
 
       return await fetchAccessRules({
@@ -52,24 +51,33 @@ export function useAccessRulesQuery(): UseAccessRulesQueryResult {
     refetchOnWindowFocus: false,
   })
 
-  // Format the effective progress
-  const effectiveProgress: AccessRulesFetchProgress = query.isFetching
+  // Explicit refetch handler that resets progress
+  const handleRefetch = useCallback(async () => {
+    setProgress({
+      loaded: 0,
+      total: 100,
+      percentage: 5,
+      label: 'Odświeżanie danych Cloudflare...',
+    })
+    return await query.refetch()
+  }, [query])
+
+  // Compute effective progress
+  const effectiveProgress: FetchProgress = query.isFetching
     ? progress
     : query.isSuccess
     ? {
-        stage: 'complete',
-        current: query.data?.length || 0,
+        loaded: query.data?.length || 0,
         total: query.data?.length || 0,
         percentage: 100,
-        message: `Załadowano ${query.data?.length || 0} reguł.`,
+        label: `Załadowano ${query.data?.length || 0} reguł.`,
       }
     : query.isError
     ? {
-        stage: 'idle',
-        current: 0,
+        loaded: 0,
         total: 0,
         percentage: 0,
-        message: query.error?.message || 'Błąd podczas pobierania reguł',
+        label: query.error?.message || 'Błąd podczas pobierania reguł',
       }
     : progress
 
@@ -80,7 +88,7 @@ export function useAccessRulesQuery(): UseAccessRulesQueryResult {
     isFetching: query.isFetching,
     isError: query.isError,
     error: query.error,
-    refetch: query.refetch,
+    refetch: handleRefetch,
     progress: effectiveProgress,
   }
 }
