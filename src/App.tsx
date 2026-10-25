@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, lazy, Suspense } from 'react'
 import type { RowSelectionState } from '@tanstack/react-table'
 import {
   ShieldCheck,
@@ -14,13 +14,38 @@ import { GlassNavbar } from './components/layout/GlassNavbar'
 import { GlassCard } from './components/ui/GlassCard'
 import { GlassButton } from './components/ui/GlassButton'
 import { ProgressBar } from './components/ui/ProgressBar'
-import { RulesTable } from './components/rules/RulesTable'
 import { BulkActionBar } from './components/rules/BulkActionBar'
 import { ConfirmDeleteDialog } from './components/rules/ConfirmDeleteDialog'
 import { LandingPage } from './pages/LandingPage'
 import { useAuthStore, selectIsAuthenticated } from './store/useAuthStore'
 import { useAccessRulesQuery } from './hooks/useAccessRulesQuery'
 import type { NormalizedAccessRule } from './types/cloudflare'
+
+// Leniwe ładowanie tabeli reguł (Code-Splitting dla zalogowanego użytkownika)
+const RulesTable = lazy(() => import('./components/rules/RulesTable'))
+
+/** Szklany loader szkieletowy podczas asynchronicznego ładowania RulesTable */
+function GlassLoadingSkeleton() {
+  return (
+    <GlassCard className="p-6 space-y-4 animate-pulse border-white/50 dark:border-white/10 shadow-2xl">
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pb-4 border-b border-slate-200/60 dark:border-white/10">
+        <div className="h-10 bg-slate-200/70 dark:bg-slate-800/70 rounded-xl w-full sm:w-72" />
+        <div className="flex items-center gap-3 w-full sm:w-auto">
+          <div className="h-10 bg-slate-200/70 dark:bg-slate-800/70 rounded-xl w-36" />
+          <div className="h-10 bg-slate-200/70 dark:bg-slate-800/70 rounded-xl w-28" />
+        </div>
+      </div>
+      <div className="space-y-3 pt-2">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div
+            key={i}
+            className="h-12 bg-slate-200/50 dark:bg-slate-800/50 rounded-xl w-full"
+          />
+        ))}
+      </div>
+    </GlassCard>
+  )
+}
 
 export function App() {
   const isAuthenticated = useAuthStore(selectIsAuthenticated)
@@ -256,18 +281,20 @@ function Dashboard() {
           </GlassCard>
         </section>
 
-        {/* Real Rules Table Section with controlled selection */}
+        {/* Real Rules Table Section with controlled selection & Suspense */}
         <section className="space-y-4">
-          <RulesTable
-            data={rules}
-            isLoading={isLoading}
-            isFetching={isFetching}
-            onRefetch={() => refetch()}
-            onDeleteRule={handleDeleteSingleRule}
-            onDeleteSelected={handleDeleteBulk}
-            rowSelection={rowSelection}
-            onRowSelectionChange={setRowSelection}
-          />
+          <Suspense fallback={<GlassLoadingSkeleton />}>
+            <RulesTable
+              data={rules}
+              isLoading={isLoading}
+              isFetching={isFetching}
+              onRefetch={() => refetch()}
+              onDeleteRule={handleDeleteSingleRule}
+              onDeleteSelected={handleDeleteBulk}
+              rowSelection={rowSelection}
+              onRowSelectionChange={setRowSelection}
+            />
+          </Suspense>
         </section>
       </main>
 

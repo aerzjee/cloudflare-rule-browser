@@ -189,6 +189,8 @@ export const RulesTable: React.FC<RulesTableProps> = ({
   onRowSelectionChange: setControlledRowSelection,
   className,
 }) => {
+  "use no memo";
+
   // Local table state
   const [internalRowSelection, setInternalRowSelection] = useState<RowSelectionState>({})
   const rowSelection = controlledRowSelection ?? internalRowSelection
@@ -507,6 +509,7 @@ export const RulesTable: React.FC<RulesTableProps> = ({
   }
 
   // TanStack Table Instance
+  // oxlint-disable-next-line react/incompatible-library, react-hooks/incompatible-library
   const table = useReactTable({
     data: filteredData,
     columns,

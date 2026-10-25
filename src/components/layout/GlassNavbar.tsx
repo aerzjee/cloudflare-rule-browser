@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, lazy, Suspense } from 'react'
 import {
   Cloud,
   Moon,
@@ -19,8 +19,9 @@ import { useSettingsStore } from '../../store/useSettingsStore'
 import { clearAllCachedRules } from '../../utils/rulesCache'
 import { GlassButton } from '../ui/GlassButton'
 import { GlassSwitch } from '../ui/GlassSwitch'
-import { SettingsModal } from './SettingsModal'
 import { cn } from '../../lib/utils'
+
+const SettingsModal = lazy(() => import('./SettingsModal'))
 
 export interface GlassNavbarProps {
   className?: string
@@ -241,11 +242,15 @@ export const GlassNavbar: React.FC<GlassNavbarProps> = ({
         </div>
       </div>
 
-      {/* Modal konfiguracji aplikacji */}
-      <SettingsModal
-        isOpen={isSettingsOpen}
-        onClose={() => setIsSettingsOpen(false)}
-      />
+      {/* Modal konfiguracji aplikacji ładowany asynchronicznie przez Suspense */}
+      {isSettingsOpen && (
+        <Suspense fallback={null}>
+          <SettingsModal
+            isOpen={isSettingsOpen}
+            onClose={() => setIsSettingsOpen(false)}
+          />
+        </Suspense>
+      )}
     </header>
   )
 }

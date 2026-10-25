@@ -1,2 +1,3 @@
-export * from './rules/RulesTable'
-export { default } from './rules/RulesTable'
+import { RulesTable } from './rules/RulesTable'
+export type { RulesTableProps } from './rules/RulesTable'
+export default RulesTable

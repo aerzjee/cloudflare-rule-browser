@@ -28,6 +28,36 @@ export default defineConfig({
     __APP_VERSION__: JSON.stringify(appVersion),
     __GIT_COMMIT__: JSON.stringify(gitCommit),
   },
+  build: {
+    rolldownOptions: {
+      output: {
+        codeSplitting: {
+          groups: [
+            {
+              name: 'vendor-react',
+              test: /[\\/]node_modules[\\/](react|react-dom)[\\/]/,
+              priority: 40,
+            },
+            {
+              name: 'vendor-tanstack',
+              test: /[\\/]node_modules[\\/]@tanstack[\\/]/,
+              priority: 30,
+            },
+            {
+              name: 'vendor-animation',
+              test: /[\\/]node_modules[\\/](motion|@formkit)[\\/]/,
+              priority: 20,
+            },
+            {
+              name: 'vendor-ui',
+              test: /[\\/]node_modules[\\/](lucide-react|zustand|zod|idb-keyval)[\\/]/,
+              priority: 10,
+            },
+          ],
+        },
+      },
+    },
+  },
   server: {
     proxy: {
       '/api/cf': {
