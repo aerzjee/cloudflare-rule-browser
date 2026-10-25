@@ -118,37 +118,50 @@ export function useAccessRulesQuery(): UseAccessRulesQueryResult {
       } else {
         // Quick Delta Sync (pobranie tylko 1. strony - 100 najnowszych reguł)
         try {
-          const deltaRules = await fetchFirstPageRules({
-            accountLevelOnly,
-            concurrency,
-          })
+          const deltaRules = await fetchFirstPageRules(accountLevelOnly, concurrency)
 
           if (deltaRules.length > 0) {
-            queryClient.setQueriesData<NormalizedAccessRule[]>(
-              { queryKey: ['cloudflare', 'access_rules', { email, accountLevelOnly }] },
-              (old = []) => {
-                const map = new Map<string, NormalizedAccessRule>()
-                for (const r of old) {
-                  const key =
-                    r.scopeType === 'account'
-                      ? `account-${r.accountId}-${r.id}`
-                      : `zone-${r.zoneId}-${r.id}`
-                  map.set(key, r)
-                }
-                for (const r of deltaRules) {
-                  const key =
-                    r.scopeType === 'account'
-                      ? `account-${r.accountId}-${r.id}`
-                      : `zone-${r.zoneId}-${r.id}`
-                  map.set(key, r)
-                }
-                const updated = Array.from(map.values())
-                setCachedRules(accountLevelOnly, updated).catch((err) =>
-                  console.warn('[AutoRefresh] Błąd aktualizacji IndexedDB:', err)
-                )
-                return updated
+            const queryKey = ['cloudflare', 'access_rules', { email, accountLevelOnly }]
+
+            queryClient.setQueryData<NormalizedAccessRule[]>(queryKey, (old = []) => {
+              const getRuleKey = (r: NormalizedAccessRule) =>
+                r.scopeType === 'account'
+                  ? `account-${r.accountId}-${r.id}`
+                  : `zone-${r.zoneId}-${r.id}`
+
+              // 1. Zbuduj mapę istniejących reguł po unikalnym kluczu
+              const existingMap = new Map<string, NormalizedAccessRule>()
+              for (const r of old) {
+                existingMap.set(getRuleKey(r), r)
               }
-            )
+
+              const newRulesToPrepend: NormalizedAccessRule[] = []
+
+              // 2. Zaktualizuj istniejące wpisy nowymi danymi z 1. strony,
+              //    a zupełnie nowe reguły zbierz do wstawienia na początek listy
+              for (const delta of deltaRules) {
+                const key = getRuleKey(delta)
+                if (existingMap.has(key)) {
+                  existingMap.set(key, delta)
+                } else {
+                  newRulesToPrepend.push(delta)
+                  existingMap.set(key, delta)
+                }
+              }
+
+              // 3. Scalenie: nowe reguły na początku listy + zaktualizowana kolejność istniejących
+              const updated = [
+                ...newRulesToPrepend,
+                ...old.map((existing) => existingMap.get(getRuleKey(existing)) ?? existing),
+              ]
+
+              // 4. Zapisz zaktualizowaną tablicę w IndexedDB w tle
+              setCachedRules(accountLevelOnly, updated).catch((err) =>
+                console.warn('[AutoRefresh] Błąd aktualizacji IndexedDB:', err)
+              )
+
+              return updated
+            })
           }
         } catch (err) {
           console.warn('[AutoRefresh] Błąd podczas synchronizacji różnicowej:', err)

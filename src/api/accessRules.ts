@@ -10,15 +10,37 @@ import type {
 } from '../types/cloudflare'
 
 /**
- * Helper to fetch all pages from a paginated Cloudflare endpoint.
- * Fetches page 1, reads `result_info.total_pages`, and fetches subsequent pages in sequence.
- * Optionally reports per-page progress via onPageProgress.
+ * Wielowątkowe pobieranie wszystkich stron z Cloudflare API z p-limit(concurrency).
+ * - Krok A: Pobiera najpierw stronę nr 1 (page=1&per_page=100&order=created_on&direction=desc).
+ * - Krok B: Odczytuje result_info.total_pages. Jeśli total_pages <= 1, zwraca od razu stronę 1.
+ * - Krok C: Jeśli total_pages > 1, tworzy tablicę pozostałych stron [2, 3, ..., total_pages].
+ * - Krok D: Używa pLimit(concurrency) do równoległego pobrania pozostałych stron (Promise.all),
+ *   zwiększając atomowo licznik loadedPages i wywołując onPageProgress.
  */
 export async function fetchAllPages<T>(
   endpoint: string,
-  defaultPerPage: number = 100,
-  onPageProgress?: (page: number, totalPages: number) => void
+  defaultPerPageOrConcurrency: number = 100,
+  concurrencyOrOnProgress?: number | ((loadedPages: number, totalPages: number) => void),
+  onPageProgressArg?: (loadedPages: number, totalPages: number) => void
 ): Promise<T[]> {
+  let defaultPerPage = 100
+  let effectiveConcurrency = useSettingsStore.getState().concurrency ?? 2
+  let onPageProgress: ((loadedPages: number, totalPages: number) => void) | undefined
+
+  if (typeof concurrencyOrOnProgress === 'function') {
+    defaultPerPage = defaultPerPageOrConcurrency
+    onPageProgress = concurrencyOrOnProgress
+  } else if (typeof concurrencyOrOnProgress === 'number') {
+    defaultPerPage = defaultPerPageOrConcurrency
+    effectiveConcurrency = concurrencyOrOnProgress
+    onPageProgress = onPageProgressArg
+  } else if (typeof onPageProgressArg === 'function') {
+    effectiveConcurrency = defaultPerPageOrConcurrency
+    onPageProgress = onPageProgressArg
+  } else {
+    defaultPerPage = defaultPerPageOrConcurrency
+  }
+
   const urlObj = new URL(endpoint, 'http://localhost')
 
   if (!urlObj.searchParams.has('per_page')) {
@@ -26,6 +48,17 @@ export async function fetchAllPages<T>(
   }
   urlObj.searchParams.set('page', '1')
 
+  // Dodaj sortowanie chronologiczne od najnowszych dla reguł dostępu, jeśli nie określono
+  if (endpoint.includes('access_rules') || endpoint.includes('rules')) {
+    if (!urlObj.searchParams.has('order')) {
+      urlObj.searchParams.set('order', 'created_on')
+    }
+    if (!urlObj.searchParams.has('direction')) {
+      urlObj.searchParams.set('direction', 'desc')
+    }
+  }
+
+  // Krok A: Pobierz najpierw stronę nr 1
   const firstPath = urlObj.pathname + urlObj.search
   const firstRes = await cfFetch<T[]>(firstPath)
 
@@ -39,18 +72,38 @@ export async function fetchAllPages<T>(
         )
       : 1)
 
-  onPageProgress?.(1, totalPages)
+  let loadedPages = 1
+  onPageProgress?.(loadedPages, totalPages)
 
-  if (totalPages > 1) {
-    for (let page = 2; page <= totalPages; page++) {
-      urlObj.searchParams.set('page', String(page))
-      const nextPath = urlObj.pathname + urlObj.search
-      const nextRes = await cfFetch<T[]>(nextPath)
-      if (nextRes.result && Array.isArray(nextRes.result)) {
-        items.push(...nextRes.result)
-      }
-      onPageProgress?.(page, totalPages)
-    }
+  // Krok B: Jeśli total_pages <= 1, zwróć od razu wyniki z 1. strony
+  if (totalPages <= 1) {
+    return items
+  }
+
+  // Krok C: Jeśli total_pages > 1, utwórz tablicę numerów pozostałych stron [2, 3, ..., total_pages]
+  const remainingPages: number[] = []
+  for (let p = 2; p <= totalPages; p++) {
+    remainingPages.push(p)
+  }
+
+  // Krok D: Użyj pLimit(concurrency) i pobierz pozostałe strony równolegle (Promise.all)
+  const limit = pLimit(effectiveConcurrency)
+  const pageTasks = remainingPages.map((page) =>
+    limit(async () => {
+      const pageUrl = new URL(urlObj.toString())
+      pageUrl.searchParams.set('page', String(page))
+      const pagePath = pageUrl.pathname + pageUrl.search
+      const pageRes = await cfFetch<T[]>(pagePath)
+      loadedPages++
+      onPageProgress?.(loadedPages, totalPages)
+      return { page, data: pageRes.result || [] }
+    })
+  )
+
+  const pageResults = await Promise.all(pageTasks)
+  pageResults.sort((a, b) => a.page - b.page)
+  for (const pr of pageResults) {
+    items.push(...pr.data)
   }
 
   return items
@@ -132,6 +185,7 @@ export async function fetchAccessRules(
   options: FetchAccessRulesOptions = {}
 ): Promise<NormalizedAccessRule[]> {
   const { accountLevelOnly = false, onProgress } = options
+  const effectiveConcurrency = options.concurrency ?? useSettingsStore.getState().concurrency ?? 2
   const rulesMap = new Map<string, NormalizedAccessRule>()
 
   if (accountLevelOnly) {
@@ -143,7 +197,11 @@ export async function fetchAccessRules(
       label: 'Pobieranie listy kont Cloudflare...',
     })
 
-    const accounts = await fetchAllPages<CloudflareAccount>('/accounts', 50)
+    const accounts = await fetchAllPages<CloudflareAccount>(
+      '/accounts',
+      50,
+      effectiveConcurrency
+    )
 
     if (accounts.length === 0) {
       onProgress?.({
@@ -165,8 +223,9 @@ export async function fetchAccessRules(
     for (const account of accounts) {
       try {
         const rules = await fetchAllPages<CloudflareAccessRule>(
-          `/accounts/${account.id}/firewall/access_rules/rules?per_page=100`,
+          `/accounts/${account.id}/firewall/access_rules/rules?per_page=100&order=created_on&direction=desc`,
           100,
+          effectiveConcurrency,
           (page, totalPages) => {
             const percentage = Math.min(100, 25 + Math.round((page / totalPages) * 75))
             onProgress?.({
@@ -179,7 +238,7 @@ export async function fetchAccessRules(
         )
 
         for (const rule of rules) {
-          const key = `account-${rule.id}`
+          const key = `account-${account.id}-${rule.id}`
           rulesMap.set(
             key,
             normalizeAccessRule(rule, {
@@ -212,7 +271,11 @@ export async function fetchAccessRules(
     label: 'Pobieranie listy domen...',
   })
 
-  const zones = await fetchAllPages<CloudflareZone>('/zones?per_page=50', 50)
+  const zones = await fetchAllPages<CloudflareZone>(
+    '/zones?per_page=50',
+    50,
+    effectiveConcurrency
+  )
 
   // Jeśli brak domen na koncie, sprawdźmy reguły konta
   if (zones.length === 0) {
@@ -223,16 +286,21 @@ export async function fetchAccessRules(
       label: 'Brak domen. Pobieranie reguł poziomu konta...',
     })
 
-    const accounts = await fetchAllPages<CloudflareAccount>('/accounts', 50)
+    const accounts = await fetchAllPages<CloudflareAccount>(
+      '/accounts',
+      50,
+      effectiveConcurrency
+    )
     for (const account of accounts) {
       try {
         const rules = await fetchAllPages<CloudflareAccessRule>(
-          `/accounts/${account.id}/firewall/access_rules/rules?per_page=100`,
-          100
+          `/accounts/${account.id}/firewall/access_rules/rules?per_page=100&order=created_on&direction=desc`,
+          100,
+          effectiveConcurrency
         )
         for (const rule of rules) {
           rulesMap.set(
-            `account-${rule.id}`,
+            `account-${account.id}-${rule.id}`,
             normalizeAccessRule(rule, {
               accountId: account.id,
               accountName: account.name || rule.scope?.name || rule.scope?.email || 'Konto Cloudflare',
@@ -254,8 +322,7 @@ export async function fetchAccessRules(
     return Array.from(rulesMap.values())
   }
 
-  // Pobierz reguły równolegle dla każdej domeny z konfigurowalnym ograniczeniem p-limit
-  const effectiveConcurrency = options.concurrency ?? useSettingsStore.getState().concurrency ?? 2
+  // Pobierz reguły równolegle dla każdej domeny z ograniczeniem p-limit(effectiveConcurrency)
   const limit = pLimit(effectiveConcurrency)
   const totalZones = zones.length
   let completedZones = 0
@@ -264,26 +331,28 @@ export async function fetchAccessRules(
     loaded: 0,
     total: totalZones,
     percentage: 15,
-    label: `Rozpoczynanie pobierania reguł dla ${totalZones} domen...`,
+    label: `Rozpoczynanie pobierania reguł dla ${totalZones} domen (współbieżność: ${effectiveConcurrency})...`,
   })
 
   const tasks = zones.map((zone) =>
     limit(async () => {
       try {
         const rules = await fetchAllPages<CloudflareAccessRule>(
-          `/zones/${zone.id}/firewall/access_rules/rules?per_page=100`,
-          100
+          `/zones/${zone.id}/firewall/access_rules/rules?per_page=100&order=created_on&direction=desc`,
+          100,
+          effectiveConcurrency
         )
 
         for (const rule of rules) {
           if (isAccountLevelScope(rule.scope?.type)) {
-            // Reguła z poziomu konta – pojawi się w tabeli tylko raz
-            const key = `account-${rule.id}`
+            // Reguła z poziomu konta – unikalny klucz po koncie i ID
+            const accountId = zone.account?.id || rule.scope?.id
+            const key = `account-${accountId}-${rule.id}`
             if (!rulesMap.has(key)) {
               rulesMap.set(
                 key,
                 normalizeAccessRule(rule, {
-                  accountId: zone.account?.id || rule.scope?.id,
+                  accountId,
                   accountName:
                     zone.account?.name ||
                     rule.scope?.name ||
@@ -307,10 +376,7 @@ export async function fetchAccessRules(
           }
         }
       } catch (err) {
-        console.warn(
-          `Błąd podczas pobierania reguł dla strefy ${zone.name} (${zone.id}):`,
-          err
-        )
+        console.warn(`Błąd podczas pobierania reguł dla strefy ${zone.name} (${zone.id}):`, err)
       } finally {
         completedZones++
         const percentage = Math.min(100, 15 + Math.round((completedZones / totalZones) * 85))
@@ -318,7 +384,7 @@ export async function fetchAccessRules(
           loaded: completedZones,
           total: totalZones,
           percentage,
-          label: `Pobrano domeny: ${completedZones} / ${totalZones} (${zone.name})`,
+          label: `Pobrano reguły dla ${completedZones} z ${totalZones} domen (${rulesMap.size} reguł)...`,
         })
       }
     })
@@ -456,15 +522,29 @@ export async function bulkDeleteAccessRules(
 }
 
 /**
- * Pobiera tylko 1. stronę (do 100 reguł) dla szybkiej synchronizacji różnicowej (Quick Delta Sync).
- * Zwraca najnowsze reguły bez obciążania limitów API Cloudflare.
+ * Szybkie odświeżanie tylko 1. strony (fetchFirstPageDelta) w accessRules.ts:
+ * - Dla accountLevelOnly === true: pobiera TYLKO pierwszą stronę (page=1&per_page=100&order=created_on&direction=desc) dla konta.
+ * - Dla accountLevelOnly === false: pobiera tylko pierwszą stronę (page=1&per_page=100&order=created_on&direction=desc) dla stref z pLimit(concurrency).
+ * - Zwraca znormalizowaną tablicę NormalizedAccessRule[].
  */
-export async function fetchFirstPageRules(options: {
-  accountLevelOnly?: boolean
-  concurrency?: number
-} = {}): Promise<NormalizedAccessRule[]> {
-  const { accountLevelOnly = false } = options
-  const effectiveConcurrency = options.concurrency ?? useSettingsStore.getState().concurrency ?? 2
+export async function fetchFirstPageRules(
+  accountLevelOnlyOrOptions: boolean | { accountLevelOnly?: boolean; concurrency?: number } = false,
+  concurrencyArg?: number
+): Promise<NormalizedAccessRule[]> {
+  let accountLevelOnly = false
+  let concurrency = useSettingsStore.getState().concurrency ?? 2
+
+  if (typeof accountLevelOnlyOrOptions === 'boolean') {
+    accountLevelOnly = accountLevelOnlyOrOptions
+    if (typeof concurrencyArg === 'number') {
+      concurrency = concurrencyArg
+    }
+  } else if (typeof accountLevelOnlyOrOptions === 'object' && accountLevelOnlyOrOptions !== null) {
+    accountLevelOnly = accountLevelOnlyOrOptions.accountLevelOnly ?? false
+    concurrency = accountLevelOnlyOrOptions.concurrency ?? concurrency
+  }
+
+  const effectiveConcurrency = concurrency
   const limit = pLimit(effectiveConcurrency)
   const rulesMap = new Map<string, NormalizedAccessRule>()
 
@@ -474,20 +554,18 @@ export async function fetchFirstPageRules(options: {
     for (const account of accounts) {
       try {
         const res = await cfFetch<CloudflareAccessRule[]>(
-          `/accounts/${account.id}/firewall/access_rules/rules?page=1&per_page=100`
+          `/accounts/${account.id}/firewall/access_rules/rules?page=1&per_page=100&order=created_on&direction=desc`
         )
         const rules = res.result || []
         for (const rule of rules) {
-          const key = `account-${rule.id}`
-          if (!rulesMap.has(key)) {
-            rulesMap.set(
-              key,
-              normalizeAccessRule(rule, {
-                accountId: account.id,
-                accountName: account.name,
-              })
-            )
-          }
+          const key = `account-${account.id}-${rule.id}`
+          rulesMap.set(
+            key,
+            normalizeAccessRule(rule, {
+              accountId: account.id,
+              accountName: account.name || rule.scope?.name || rule.scope?.email || 'Konto Cloudflare',
+            })
+          )
         }
       } catch (err) {
         console.warn(`[fetchFirstPageRules] Błąd reguł konta ${account.name}:`, err)
@@ -500,22 +578,54 @@ export async function fetchFirstPageRules(options: {
   const zonesRes = await cfFetch<CloudflareZone[]>('/zones?page=1&per_page=50')
   const zones = zonesRes.result || []
 
+  // Jeśli brak domen, sprawdźmy reguły konta
+  if (zones.length === 0) {
+    const accountsRes = await cfFetch<CloudflareAccount[]>('/accounts?page=1&per_page=50')
+    const accounts = accountsRes.result || []
+    for (const account of accounts) {
+      try {
+        const res = await cfFetch<CloudflareAccessRule[]>(
+          `/accounts/${account.id}/firewall/access_rules/rules?page=1&per_page=100&order=created_on&direction=desc`
+        )
+        const rules = res.result || []
+        for (const rule of rules) {
+          const key = `account-${account.id}-${rule.id}`
+          rulesMap.set(
+            key,
+            normalizeAccessRule(rule, {
+              accountId: account.id,
+              accountName: account.name || rule.scope?.name || rule.scope?.email || 'Konto Cloudflare',
+            })
+          )
+        }
+      } catch (err) {
+        console.warn(`[fetchFirstPageRules] Błąd reguł konta ${account.name}:`, err)
+      }
+    }
+    return Array.from(rulesMap.values())
+  }
+
   const tasks = zones.map((zone) =>
     limit(async () => {
       try {
         const res = await cfFetch<CloudflareAccessRule[]>(
-          `/zones/${zone.id}/firewall/access_rules/rules?page=1&per_page=100`
+          `/zones/${zone.id}/firewall/access_rules/rules?page=1&per_page=100&order=created_on&direction=desc`
         )
         const rules = res.result || []
         for (const rule of rules) {
           if (isAccountLevelScope(rule.scope?.type)) {
-            const key = `account-${rule.id}`
+            const accountId = zone.account?.id || rule.scope?.id
+            const key = `account-${accountId}-${rule.id}`
             if (!rulesMap.has(key)) {
               rulesMap.set(
                 key,
                 normalizeAccessRule(rule, {
-                  accountId: rule.scope?.id,
-                  accountName: rule.scope?.name || rule.scope?.email,
+                  accountId,
+                  accountName:
+                    zone.account?.name ||
+                    rule.scope?.name ||
+                    rule.scope?.email ||
+                    'Konto Cloudflare',
                 })
               )
             }
@@ -539,4 +649,7 @@ export async function fetchFirstPageRules(options: {
   await Promise.all(tasks)
   return Array.from(rulesMap.values())
 }
+
+/** Alias do szybkiego odświeżania różnicowego 1. strony */
+export const fetchFirstPageDelta = fetchFirstPageRules
 
