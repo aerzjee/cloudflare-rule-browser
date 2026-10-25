@@ -1,7 +1,8 @@
-import { useState, useCallback, useRef } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import { fetchAccessRules } from '../api/accessRules'
+import { useState, useCallback, useRef, useEffect } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { fetchAccessRules, fetchFirstPageRules } from '../api/accessRules'
 import { useAuthStore } from '../store/useAuthStore'
+import { useSettingsStore } from '../store/useSettingsStore'
 import {
   getCachedRules,
   setCachedRules,
@@ -25,9 +26,14 @@ export interface UseAccessRulesQueryResult {
 }
 
 export function useAccessRulesQuery(): UseAccessRulesQueryResult {
+  const queryClient = useQueryClient()
   const email = useAuthStore((s) => s.email)
   const token = useAuthStore((s) => s.token)
   const accountLevelOnly = useAuthStore((s) => s.accountLevelOnly)
+
+  const concurrency = useSettingsStore((s) => s.concurrency)
+  const autoRefreshInterval = useSettingsStore((s) => s.autoRefreshInterval)
+  const autoRefreshMode = useSettingsStore((s) => s.autoRefreshMode)
 
   const forceRefreshRef = useRef<boolean>(false)
 
@@ -96,6 +102,72 @@ export function useAccessRulesQuery(): UseAccessRulesQueryResult {
     })
     return await query.refetch()
   }, [accountLevelOnly, query])
+
+  // Cykliczne odświeżanie reguł w tle (Auto-Refresh)
+  useEffect(() => {
+    if (!email || !token || autoRefreshInterval <= 0) {
+      return
+    }
+
+    const intervalId = setInterval(async () => {
+      // Pomiń odświeżanie, jeśli aktualnie trwa inne zapytanie
+      if (query.isFetching) return
+
+      if (autoRefreshMode === 'full') {
+        await forceRefresh()
+      } else {
+        // Quick Delta Sync (pobranie tylko 1. strony - 100 najnowszych reguł)
+        try {
+          const deltaRules = await fetchFirstPageRules({
+            accountLevelOnly,
+            concurrency,
+          })
+
+          if (deltaRules.length > 0) {
+            queryClient.setQueriesData<NormalizedAccessRule[]>(
+              { queryKey: ['cloudflare', 'access_rules', { email, accountLevelOnly }] },
+              (old = []) => {
+                const map = new Map<string, NormalizedAccessRule>()
+                for (const r of old) {
+                  const key =
+                    r.scopeType === 'account'
+                      ? `account-${r.accountId}-${r.id}`
+                      : `zone-${r.zoneId}-${r.id}`
+                  map.set(key, r)
+                }
+                for (const r of deltaRules) {
+                  const key =
+                    r.scopeType === 'account'
+                      ? `account-${r.accountId}-${r.id}`
+                      : `zone-${r.zoneId}-${r.id}`
+                  map.set(key, r)
+                }
+                const updated = Array.from(map.values())
+                setCachedRules(accountLevelOnly, updated).catch((err) =>
+                  console.warn('[AutoRefresh] Błąd aktualizacji IndexedDB:', err)
+                )
+                return updated
+              }
+            )
+          }
+        } catch (err) {
+          console.warn('[AutoRefresh] Błąd podczas synchronizacji różnicowej:', err)
+        }
+      }
+    }, autoRefreshInterval * 1000)
+
+    return () => clearInterval(intervalId)
+  }, [
+    email,
+    token,
+    accountLevelOnly,
+    autoRefreshInterval,
+    autoRefreshMode,
+    concurrency,
+    forceRefresh,
+    query.isFetching,
+    queryClient,
+  ])
 
   // Compute effective progress
   const effectiveProgress: FetchProgress = query.isFetching

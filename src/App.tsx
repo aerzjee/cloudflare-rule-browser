@@ -2,35 +2,22 @@ import { useState, useMemo } from 'react'
 import type { RowSelectionState } from '@tanstack/react-table'
 import {
   ShieldCheck,
-  Search,
-  Key,
   Flame,
   Sparkles,
   RefreshCw,
-  Layers,
   AlertCircle,
   Ban,
   ShieldAlert,
-  ChevronDown,
 } from 'lucide-react'
 import { AmbientBackground } from './components/ui/AmbientBackground'
 import { GlassNavbar } from './components/layout/GlassNavbar'
-import {
-  GlassCard,
-  GlassCardHeader,
-  GlassCardTitle,
-  GlassCardDescription,
-  GlassCardContent,
-} from './components/ui/GlassCard'
+import { GlassCard } from './components/ui/GlassCard'
 import { GlassButton } from './components/ui/GlassButton'
-import { GlassInput } from './components/ui/GlassInput'
-import { GlassSwitch } from './components/ui/GlassSwitch'
 import { ProgressBar } from './components/ui/ProgressBar'
 import { RulesTable } from './components/rules/RulesTable'
 import { BulkActionBar } from './components/rules/BulkActionBar'
 import { ConfirmDeleteDialog } from './components/rules/ConfirmDeleteDialog'
 import { LandingPage } from './pages/LandingPage'
-import { useThemeStore } from './store/useThemeStore'
 import { useAuthStore, selectIsAuthenticated } from './store/useAuthStore'
 import { useAccessRulesQuery } from './hooks/useAccessRulesQuery'
 import type { NormalizedAccessRule } from './types/cloudflare'
@@ -47,7 +34,6 @@ export function App() {
 
 /** Main dashboard — rendered when authenticated */
 function Dashboard() {
-  const { theme, toggleTheme } = useThemeStore()
   const accountLevelOnly = useAuthStore((s) => s.accountLevelOnly)
 
   // Real TanStack Query v5 hook
@@ -110,14 +96,6 @@ function Dashboard() {
     })
   }
 
-  // Showcase state for component playground
-  const [showPlayground, setShowPlayground] = useState(false)
-  const [filterEnabled, setFilterEnabled] = useState(true)
-  const [wafStrict, setWafStrict] = useState(true)
-  const [autoSync, setAutoSync] = useState(false)
-  const [testSearch, setTestSearch] = useState('')
-  const [testApiKey, setTestApiKey] = useState('')
-
   // Compute live statistics
   const totalRulesCount = rules.length
   const blockCount = rules.filter((r) => r.mode === 'block').length
@@ -162,9 +140,6 @@ function Dashboard() {
               leftIcon={<RefreshCw className="w-4 h-4" />}
             >
               Odśwież dane
-            </GlassButton>
-            <GlassButton variant="glass" size="md" onClick={toggleTheme}>
-              {theme === 'dark' ? 'Tryb jasny' : 'Tryb ciemny'}
             </GlassButton>
           </div>
         </div>
@@ -293,134 +268,6 @@ function Dashboard() {
             rowSelection={rowSelection}
             onRowSelectionChange={setRowSelection}
           />
-        </section>
-
-        {/* Collapsible Design System & Components Playground */}
-        <section className="space-y-4 pt-6">
-          <div className="flex items-center justify-between border-b border-slate-200/60 dark:border-white/10 pb-3">
-            <button
-              type="button"
-              onClick={() => setShowPlayground((v) => !v)}
-              className="flex items-center gap-2 text-left cursor-pointer group"
-            >
-              <Layers className="w-5 h-5 text-[#f6821f]" />
-              <div>
-                <h3 className="text-lg font-bold text-slate-900 dark:text-white group-hover:text-[#f6821f] transition-colors">
-                  Komponenty UI Design System (Podgląd)
-                </h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Kliknij, aby {showPlayground ? 'zwinąć' : 'rozwinąć'} podgląd komponentów
-                  Glassmorphism
-                </p>
-              </div>
-              <ChevronDown
-                className={`w-5 h-5 ml-2 text-slate-400 transition-transform duration-200 ${
-                  showPlayground ? 'rotate-180' : ''
-                }`}
-              />
-            </button>
-          </div>
-
-          {showPlayground && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pt-2 animate-in fade-in duration-300">
-              {/* Card 1: Buttons & Switches */}
-              <GlassCard hoverEffect>
-                <GlassCardHeader>
-                  <GlassCardTitle>Przyciski i Przełączniki</GlassCardTitle>
-                  <GlassCardDescription>
-                    Warianty: Primary Cloudflare, Glass, Secondary, Outline i Ghost
-                  </GlassCardDescription>
-                </GlassCardHeader>
-
-                <GlassCardContent className="space-y-6">
-                  <div className="flex flex-wrap items-center gap-3">
-                    <GlassButton variant="primary">Primary Button</GlassButton>
-                    <GlassButton variant="glass">Glass Neutral</GlassButton>
-                    <GlassButton variant="secondary">Secondary</GlassButton>
-                    <GlassButton variant="outline">Outline</GlassButton>
-                    <GlassButton variant="ghost">Ghost</GlassButton>
-                    <GlassButton variant="danger">Danger</GlassButton>
-                  </div>
-
-                  <div className="pt-2 border-t border-slate-200/50 dark:border-white/5 space-y-4">
-                    <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                      GlassSwitch
-                    </h4>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <GlassSwitch
-                        checked={filterEnabled}
-                        onChange={setFilterEnabled}
-                        label="Aktywne filtry"
-                        description="Przełącznik demonstracyjny"
-                        size="md"
-                      />
-
-                      <GlassSwitch
-                        checked={wafStrict}
-                        onChange={setWafStrict}
-                        label="Tryb restrykcyjny"
-                        description="Automatyczny challenge"
-                        size="md"
-                      />
-
-                      <GlassSwitch
-                        checked={autoSync}
-                        onChange={setAutoSync}
-                        label="Auto synchronizacja"
-                        description="Cykliczne odpytywanie API"
-                        size="sm"
-                      />
-
-                      <GlassSwitch
-                        checked={theme === 'dark'}
-                        onChange={toggleTheme}
-                        label="Tryb ciemny"
-                        description="Stan zapisany w Zustand"
-                        size="sm"
-                      />
-                    </div>
-                  </div>
-                </GlassCardContent>
-              </GlassCard>
-
-              {/* Card 2: Glass Inputs */}
-              <GlassCard hoverEffect>
-                <GlassCardHeader>
-                  <GlassCardTitle>Pola Wprowadzania</GlassCardTitle>
-                  <GlassCardDescription>
-                    GlassInput z obsługą ikon, opisów i walidacji
-                  </GlassCardDescription>
-                </GlassCardHeader>
-
-                <GlassCardContent className="space-y-4">
-                  <GlassInput
-                    label="Wyszukiwanie testowe"
-                    placeholder="Wpisz frazę..."
-                    value={testSearch}
-                    onChange={(e) => setTestSearch(e.target.value)}
-                    leftIcon={<Search className="w-4 h-4" />}
-                  />
-
-                  <GlassInput
-                    label="Klucz API"
-                    type="password"
-                    placeholder="Token Cloudflare..."
-                    value={testApiKey}
-                    onChange={(e) => setTestApiKey(e.target.value)}
-                    leftIcon={<Key className="w-4 h-4" />}
-                  />
-
-                  <GlassInput
-                    label="Błąd walidacji"
-                    defaultValue="invalid_id_value"
-                    error="Wartość nie spełnia wymagań formatu IP lub CIDR"
-                    leftIcon={<AlertCircle className="w-4 h-4 text-red-500" />}
-                  />
-                </GlassCardContent>
-              </GlassCard>
-            </div>
-          )}
         </section>
       </main>
 

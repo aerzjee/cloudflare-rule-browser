@@ -18,6 +18,7 @@ import {
   type BulkDeleteResult,
 } from '../../api/accessRules'
 import { useAuthStore } from '../../store/useAuthStore'
+import { useSettingsStore } from '../../store/useSettingsStore'
 import { setCachedRules } from '../../utils/rulesCache'
 import { GlassButton } from '../ui/GlassButton'
 import { GlassCard } from '../ui/GlassCard'
@@ -37,6 +38,7 @@ export const ConfirmDeleteDialog: React.FC<ConfirmDeleteDialogProps> = ({
 }) => {
   const queryClient = useQueryClient()
   const accountLevelOnly = useAuthStore((s) => s.accountLevelOnly)
+  const concurrency = useSettingsStore((s) => s.concurrency)
 
   const [isDeleting, setIsDeleting] = useState(false)
   const [progress, setProgress] = useState<BulkDeleteProgress>({
@@ -52,7 +54,7 @@ export const ConfirmDeleteDialog: React.FC<ConfirmDeleteDialogProps> = ({
     setResult(null)
 
     try {
-      const deleteResult = await bulkDeleteAccessRules(rules, setProgress)
+      const deleteResult = await bulkDeleteAccessRules(rules, setProgress, concurrency)
       setResult(deleteResult)
 
       // KRYTYCZNE: Natychmiastowa aktualizacja cache'u bez refetchu/invalidacji
@@ -186,7 +188,7 @@ export const ConfirmDeleteDialog: React.FC<ConfirmDeleteDialogProps> = ({
                     </div>
 
                     <p className="text-xs text-center text-slate-500">
-                      Współbieżność kontrolowana przez p-limit(5)
+                      Współbieżność kontrolowana przez p-limit({concurrency})
                     </p>
                   </div>
                 ) : result ? (

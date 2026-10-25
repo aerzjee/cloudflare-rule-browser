@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState } from 'react'
 import {
   Cloud,
   Moon,
@@ -10,13 +10,16 @@ import {
   Globe,
   Building2,
   GitBranch,
+  Settings,
 } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useThemeStore } from '../../store/useThemeStore'
 import { useAuthStore, selectIsAuthenticated } from '../../store/useAuthStore'
+import { useSettingsStore } from '../../store/useSettingsStore'
 import { clearAllCachedRules } from '../../utils/rulesCache'
 import { GlassButton } from '../ui/GlassButton'
 import { GlassSwitch } from '../ui/GlassSwitch'
+import { SettingsModal } from './SettingsModal'
 import { cn } from '../../lib/utils'
 
 export interface GlassNavbarProps {
@@ -38,6 +41,16 @@ export const GlassNavbar: React.FC<GlassNavbarProps> = ({
   const isAuthenticated = useAuthStore(selectIsAuthenticated)
   const logout = useAuthStore((s) => s.logout)
   const queryClient = useQueryClient()
+
+  // Stan modala ustawień i subskrypcja auto-odświeżania
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false)
+  const autoRefreshInterval = useSettingsStore((s) => s.autoRefreshInterval)
+  const autoRefreshMode = useSettingsStore((s) => s.autoRefreshMode)
+
+  const formatIntervalLabel = (sec: number): string => {
+    if (sec >= 60) return `${Math.round(sec / 60)}m`
+    return `${sec}s`
+  }
 
   const handleLogout = async () => {
     try {
@@ -127,7 +140,50 @@ export const GlassNavbar: React.FC<GlassNavbarProps> = ({
         )}
 
         {/* Right Controls */}
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
+          {/* Settings button with optional auto-refresh indicator badge */}
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => setIsSettingsOpen(true)}
+              title={
+                autoRefreshInterval > 0
+                  ? `Ustawienia (Auto-Refresh: co ${formatIntervalLabel(autoRefreshInterval)}, tryb: ${autoRefreshMode === 'first_page' ? 'Delta' : 'Pełny'})`
+                  : 'Konfiguracja aplikacji'
+              }
+              aria-label="Otwórz konfigurację aplikacji"
+              className={cn(
+                'relative flex items-center justify-center w-9 h-9 rounded-xl transition-all duration-200 cursor-pointer',
+                'backdrop-blur-md bg-slate-200/50 dark:bg-slate-800/50 hover:bg-white/80 dark:hover:bg-slate-700/80',
+                'border border-white/40 dark:border-white/10 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white',
+                'shadow-sm active:scale-95'
+              )}
+            >
+              <Settings className="w-4 h-4 transition-transform hover:rotate-45" />
+
+              {/* Subtelny pulsujący wskaźnik aktywnego auto-refresh */}
+              {autoRefreshInterval > 0 && (
+                <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                </span>
+              )}
+            </button>
+
+            {/* Dyskretny badge informujący o aktywnym interwale */}
+            {autoRefreshInterval > 0 && (
+              <button
+                type="button"
+                onClick={() => setIsSettingsOpen(true)}
+                title="Kliknij, aby zmienić ustawienia cyklicznego odświeżania"
+                className="hidden xl:inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-mono font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 cursor-pointer hover:bg-emerald-500/20 transition-colors"
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                Auto: {formatIntervalLabel(autoRefreshInterval)}
+              </button>
+            )}
+          </div>
+
           {/* Theme Segmented Control (desktop) */}
           <div className="hidden sm:flex items-center gap-2 bg-slate-200/50 dark:bg-slate-800/50 backdrop-blur-md p-1 rounded-xl border border-white/40 dark:border-white/10">
             <button
@@ -184,6 +240,12 @@ export const GlassNavbar: React.FC<GlassNavbarProps> = ({
           )}
         </div>
       </div>
+
+      {/* Modal konfiguracji aplikacji */}
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+      />
     </header>
   )
 }

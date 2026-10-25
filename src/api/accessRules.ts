@@ -1,5 +1,6 @@
 import pLimit from 'p-limit'
 import { cfFetch } from './cfClient'
+import { useSettingsStore } from '../store/useSettingsStore'
 import type {
   CloudflareAccessRule,
   CloudflareAccount,
@@ -117,6 +118,7 @@ export function normalizeAccessRule(
 
 export interface FetchAccessRulesOptions {
   accountLevelOnly?: boolean
+  concurrency?: number
   onProgress?: (progress: FetchProgress) => void
 }
 
@@ -252,8 +254,9 @@ export async function fetchAccessRules(
     return Array.from(rulesMap.values())
   }
 
-  // Pobierz reguły równolegle dla każdej domeny z ograniczeniem p-limit(5)
-  const limit = pLimit(5)
+  // Pobierz reguły równolegle dla każdej domeny z konfigurowalnym ograniczeniem p-limit
+  const effectiveConcurrency = options.concurrency ?? useSettingsStore.getState().concurrency ?? 2
+  const limit = pLimit(effectiveConcurrency)
   const totalZones = zones.length
   let completedZones = 0
 
@@ -385,14 +388,16 @@ export interface BulkDeleteResult {
 }
 
 /**
- * Usuwa wiele reguł współbieżnie z p-limit(5) i Promise.allSettled,
+ * Usuwa wiele reguł współbieżnie z p-limit i Promise.allSettled,
  * dzięki czemu pojedynczy błąd nie przerywa usuwania pozostałych reguł.
  */
 export async function bulkDeleteAccessRules(
   rules: NormalizedAccessRule[],
-  onProgress?: (progress: BulkDeleteProgress) => void
+  onProgress?: (progress: BulkDeleteProgress) => void,
+  concurrency?: number
 ): Promise<BulkDeleteResult> {
-  const limit = pLimit(5)
+  const effectiveConcurrency = concurrency ?? useSettingsStore.getState().concurrency ?? 2
+  const limit = pLimit(effectiveConcurrency)
   const total = rules.length
   let current = 0
 
@@ -448,5 +453,90 @@ export async function bulkDeleteAccessRules(
     successful,
     failed,
   }
+}
+
+/**
+ * Pobiera tylko 1. stronę (do 100 reguł) dla szybkiej synchronizacji różnicowej (Quick Delta Sync).
+ * Zwraca najnowsze reguły bez obciążania limitów API Cloudflare.
+ */
+export async function fetchFirstPageRules(options: {
+  accountLevelOnly?: boolean
+  concurrency?: number
+} = {}): Promise<NormalizedAccessRule[]> {
+  const { accountLevelOnly = false } = options
+  const effectiveConcurrency = options.concurrency ?? useSettingsStore.getState().concurrency ?? 2
+  const limit = pLimit(effectiveConcurrency)
+  const rulesMap = new Map<string, NormalizedAccessRule>()
+
+  if (accountLevelOnly) {
+    const accountsRes = await cfFetch<CloudflareAccount[]>('/accounts?page=1&per_page=50')
+    const accounts = accountsRes.result || []
+    for (const account of accounts) {
+      try {
+        const res = await cfFetch<CloudflareAccessRule[]>(
+          `/accounts/${account.id}/firewall/access_rules/rules?page=1&per_page=100`
+        )
+        const rules = res.result || []
+        for (const rule of rules) {
+          const key = `account-${rule.id}`
+          if (!rulesMap.has(key)) {
+            rulesMap.set(
+              key,
+              normalizeAccessRule(rule, {
+                accountId: account.id,
+                accountName: account.name,
+              })
+            )
+          }
+        }
+      } catch (err) {
+        console.warn(`[fetchFirstPageRules] Błąd reguł konta ${account.name}:`, err)
+      }
+    }
+    return Array.from(rulesMap.values())
+  }
+
+  // All Zones
+  const zonesRes = await cfFetch<CloudflareZone[]>('/zones?page=1&per_page=50')
+  const zones = zonesRes.result || []
+
+  const tasks = zones.map((zone) =>
+    limit(async () => {
+      try {
+        const res = await cfFetch<CloudflareAccessRule[]>(
+          `/zones/${zone.id}/firewall/access_rules/rules?page=1&per_page=100`
+        )
+        const rules = res.result || []
+        for (const rule of rules) {
+          if (isAccountLevelScope(rule.scope?.type)) {
+            const key = `account-${rule.id}`
+            if (!rulesMap.has(key)) {
+              rulesMap.set(
+                key,
+                normalizeAccessRule(rule, {
+                  accountId: rule.scope?.id,
+                  accountName: rule.scope?.name || rule.scope?.email,
+                })
+              )
+            }
+          } else {
+            const key = `zone-${zone.id}-${rule.id}`
+            rulesMap.set(
+              key,
+              normalizeAccessRule(rule, {
+                zoneId: zone.id,
+                zoneName: zone.name,
+              })
+            )
+          }
+        }
+      } catch (err) {
+        console.warn(`[fetchFirstPageRules] Błąd reguł strefy ${zone.name}:`, err)
+      }
+    })
+  )
+
+  await Promise.all(tasks)
+  return Array.from(rulesMap.values())
 }
 
