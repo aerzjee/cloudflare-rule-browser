@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
+import type { RowSelectionState } from '@tanstack/react-table'
 import {
   ShieldCheck,
   Search,
@@ -25,6 +26,8 @@ import { GlassButton } from './components/ui/GlassButton'
 import { GlassInput } from './components/ui/GlassInput'
 import { GlassSwitch } from './components/ui/GlassSwitch'
 import { RulesTable } from './components/rules/RulesTable'
+import { BulkActionBar } from './components/rules/BulkActionBar'
+import { ConfirmDeleteDialog } from './components/rules/ConfirmDeleteDialog'
 import { LandingPage } from './pages/LandingPage'
 import { useThemeStore } from './store/useThemeStore'
 import { useAuthStore, selectIsAuthenticated } from './store/useAuthStore'
@@ -57,27 +60,50 @@ function Dashboard() {
     progress,
   } = useAccessRulesQuery()
 
-  // Delete handlers (for UI feedback)
-  const handleDeleteRule = (rule: NormalizedAccessRule) => {
-    const confirmed = window.confirm(
-      `Czy na pewno chcesz usunąć regułę ${rule.target}: ${rule.value}?`
-    )
-    if (confirmed) {
-      alert(
-        `[Demo] Żądanie usunięcia reguły ID: ${rule.id} (scope: ${rule.scopeType}). Integracja mutacji DELETE będzie dostępna w kolejnym kroku.`
-      )
-    }
+  // Row selection state for TanStack Table (keyed by `${scopeType}-${zoneId??accountId}-${id}`)
+  const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
+
+  // Compute selected NormalizedAccessRule items based on rowSelection keys
+  const selectedRules = useMemo(() => {
+    return rules.filter((rule) => {
+      const key = `${rule.scopeType}-${rule.zoneId ?? rule.accountId}-${rule.id}`
+      return Boolean(rowSelection[key])
+    })
+  }, [rules, rowSelection])
+
+  // Dialog state for deletion confirmation
+  const [dialogRules, setDialogRules] = useState<NormalizedAccessRule[]>([])
+  const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false)
+
+  // Handlers for deleting single rule or bulk selection
+  const handleDeleteSingleRule = (rule: NormalizedAccessRule) => {
+    setDialogRules([rule])
+    setIsConfirmDialogOpen(true)
   }
 
-  const handleDeleteSelected = (selectedRules: NormalizedAccessRule[]) => {
-    const confirmed = window.confirm(
-      `Czy na pewno chcesz usunąć ${selectedRules.length} zaznaczonych reguł?`
+  const handleDeleteBulk = (rulesToDelete?: NormalizedAccessRule[]) => {
+    const targetRules = rulesToDelete && rulesToDelete.length > 0 ? rulesToDelete : selectedRules
+    if (targetRules.length === 0) return
+    setDialogRules(targetRules)
+    setIsConfirmDialogOpen(true)
+  }
+
+  const handleClearSelection = () => {
+    setRowSelection({})
+  }
+
+  const handleDeleteSuccess = (deleted: NormalizedAccessRule[]) => {
+    // Clear deleted items from selection
+    const deletedKeys = new Set(
+      deleted.map((r) => `${r.scopeType}-${r.zoneId ?? r.accountId}-${r.id}`)
     )
-    if (confirmed) {
-      alert(
-        `[Demo] Żądanie masowego usunięcia ${selectedRules.length} reguł. Integracja mutacji bulk DELETE będzie dostępna w kolejnym kroku.`
-      )
-    }
+    setRowSelection((prev) => {
+      const next = { ...prev }
+      for (const k of deletedKeys) {
+        delete next[k]
+      }
+      return next
+    })
   }
 
   // Showcase state for component playground
@@ -95,7 +121,7 @@ function Dashboard() {
   const challengeCount = rules.filter((r) => r.mode.includes('challenge')).length
 
   return (
-    <div className="relative min-h-screen text-slate-900 dark:text-slate-100 selection:bg-orange-500/25 selection:text-orange-600 dark:selection:text-orange-300">
+    <div className="relative min-h-screen text-slate-900 dark:text-slate-100 selection:bg-orange-500/25 selection:text-orange-600 dark:selection:text-orange-300 pb-20">
       {/* 1. Ambient Background with Cloudflare Orange, Indigo & Blue blur */}
       <AmbientBackground />
 
@@ -269,15 +295,17 @@ function Dashboard() {
           </GlassCard>
         </section>
 
-        {/* Real Rules Table Section */}
+        {/* Real Rules Table Section with controlled selection */}
         <section className="space-y-4">
           <RulesTable
             data={rules}
             isLoading={isLoading}
             isFetching={isFetching}
             onRefetch={() => refetch()}
-            onDeleteRule={handleDeleteRule}
-            onDeleteSelected={handleDeleteSelected}
+            onDeleteRule={handleDeleteSingleRule}
+            onDeleteSelected={handleDeleteBulk}
+            rowSelection={rowSelection}
+            onRowSelectionChange={setRowSelection}
           />
         </section>
 
@@ -409,6 +437,21 @@ function Dashboard() {
           )}
         </section>
       </main>
+
+      {/* 3. Pływający pasek BulkActionBar pojawiający się, gdy zaznaczono >= 1 regułę */}
+      <BulkActionBar
+        selectedCount={selectedRules.length}
+        onClearSelection={handleClearSelection}
+        onDeleteSelected={() => handleDeleteBulk()}
+      />
+
+      {/* 4. Modal potwierdzenia usunięcia z paskiem postępu */}
+      <ConfirmDeleteDialog
+        isOpen={isConfirmDialogOpen}
+        onClose={() => setIsConfirmDialogOpen(false)}
+        rules={dialogRules}
+        onSuccess={handleDeleteSuccess}
+      />
     </div>
   )
 }

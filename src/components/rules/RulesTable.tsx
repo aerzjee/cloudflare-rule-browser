@@ -1,6 +1,7 @@
 import React, { useMemo, useState, useRef, useEffect } from 'react'
 import {
   type ColumnDef,
+  type OnChangeFn,
   type PaginationState,
   type RowSelectionState,
   type SortingState,
@@ -53,7 +54,7 @@ export interface RulesTableProps {
   onDeleteRule?: (rule: NormalizedAccessRule) => void
   onDeleteSelected?: (rules: NormalizedAccessRule[]) => void
   rowSelection?: RowSelectionState
-  onRowSelectionChange?: React.Dispatch<React.SetStateAction<RowSelectionState>>
+  onRowSelectionChange?: OnChangeFn<RowSelectionState>
   className?: string
 }
 

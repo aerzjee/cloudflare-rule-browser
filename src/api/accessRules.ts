@@ -291,3 +291,121 @@ export async function fetchAccessRules(
 
   return Array.from(rulesMap.values())
 }
+
+/**
+ * Usuwa pojedynczą regułę dostępu z Cloudflare.
+ * - Dla 'account': DELETE /api/cf/accounts/{accountId}/firewall/access_rules/rules/{id}
+ * - Dla 'zone': DELETE /api/cf/zones/{zoneId}/firewall/access_rules/rules/{id}
+ */
+export async function deleteAccessRule(
+  rule: NormalizedAccessRule
+): Promise<{ id: string }> {
+  if (rule.scopeType === 'account') {
+    if (!rule.accountId) {
+      throw new Error(
+        `Nie można usunąć reguły ${rule.id}: brak wymaganego accountId dla reguły na poziomie konta.`
+      )
+    }
+    const res = await cfFetch<{ id: string }>(
+      `/accounts/${rule.accountId}/firewall/access_rules/rules/${rule.id}`,
+      {
+        method: 'DELETE',
+      }
+    )
+    return res.result
+  }
+
+  // scopeType === 'zone'
+  if (!rule.zoneId) {
+    throw new Error(
+      `Nie można usunąć reguły ${rule.id}: brak wymaganego zoneId dla reguły strefy.`
+    )
+  }
+
+  const res = await cfFetch<{ id: string }>(
+    `/zones/${rule.zoneId}/firewall/access_rules/rules/${rule.id}`,
+    {
+      method: 'DELETE',
+    }
+  )
+  return res.result
+}
+
+export interface BulkDeleteProgress {
+  current: number
+  total: number
+  percentage: number
+}
+
+export interface BulkDeleteResult {
+  total: number
+  successful: NormalizedAccessRule[]
+  failed: Array<{ rule: NormalizedAccessRule; error: string }>
+}
+
+/**
+ * Usuwa wiele reguł współbieżnie z p-limit(5) i Promise.allSettled,
+ * dzięki czemu pojedynczy błąd nie przerywa usuwania pozostałych reguł.
+ */
+export async function bulkDeleteAccessRules(
+  rules: NormalizedAccessRule[],
+  onProgress?: (progress: BulkDeleteProgress) => void
+): Promise<BulkDeleteResult> {
+  const limit = pLimit(5)
+  const total = rules.length
+  let current = 0
+
+  onProgress?.({ current: 0, total, percentage: 0 })
+
+  const tasks = rules.map((rule) =>
+    limit(async () => {
+      try {
+        await deleteAccessRule(rule)
+        return { success: true as const, rule }
+      } catch (err) {
+        return {
+          success: false as const,
+          rule,
+          error:
+            err instanceof Error ? err.message : 'Nieznany błąd podczas usuwania',
+        }
+      } finally {
+        current++
+        onProgress?.({
+          current,
+          total,
+          percentage: Math.round((current / total) * 100),
+        })
+      }
+    })
+  )
+
+  const settled = await Promise.allSettled(tasks)
+  const successful: NormalizedAccessRule[] = []
+  const failed: Array<{ rule: NormalizedAccessRule; error: string }> = []
+
+  for (const item of settled) {
+    if (item.status === 'fulfilled') {
+      if (item.value.success) {
+        successful.push(item.value.rule)
+      } else {
+        failed.push({ rule: item.value.rule, error: item.value.error })
+      }
+    } else {
+      failed.push({
+        rule: rules[0],
+        error:
+          item.reason instanceof Error
+            ? item.reason.message
+            : 'Nieoczekiwany błąd zadania',
+      })
+    }
+  }
+
+  return {
+    total,
+    successful,
+    failed,
+  }
+}
+
