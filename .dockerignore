@@ -13,3 +13,8 @@ pnpm-debug.log*
 .gemini
 Dockerfile
 .dockerignore
+RELEASE_NOTES.md
+
+# Upewnij się, że wygenerowany changelog jest kopiowany do obrazu Docker
+!src/generated
+!src/generated/**
