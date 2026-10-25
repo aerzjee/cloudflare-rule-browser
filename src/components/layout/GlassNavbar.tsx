@@ -1,6 +1,18 @@
 import React from 'react'
-import { Cloud, Moon, Sun, Shield, Activity } from 'lucide-react'
+import {
+  Cloud,
+  Moon,
+  Sun,
+  Shield,
+  Activity,
+  LogOut,
+  User,
+  Globe,
+  Building2,
+} from 'lucide-react'
+import { useQueryClient } from '@tanstack/react-query'
 import { useThemeStore } from '../../store/useThemeStore'
+import { useAuthStore, selectIsAuthenticated } from '../../store/useAuthStore'
 import { GlassButton } from '../ui/GlassButton'
 import { GlassSwitch } from '../ui/GlassSwitch'
 import { cn } from '../../lib/utils'
@@ -19,6 +31,17 @@ export const GlassNavbar: React.FC<GlassNavbarProps> = ({
   const { theme, toggleTheme } = useThemeStore()
   const isDark = theme === 'dark'
 
+  const email = useAuthStore((s) => s.email)
+  const accountLevelOnly = useAuthStore((s) => s.accountLevelOnly)
+  const isAuthenticated = useAuthStore(selectIsAuthenticated)
+  const logout = useAuthStore((s) => s.logout)
+  const queryClient = useQueryClient()
+
+  const handleLogout = () => {
+    logout()
+    queryClient.clear()
+  }
+
   return (
     <header
       className={cn(
@@ -31,7 +54,7 @@ export const GlassNavbar: React.FC<GlassNavbarProps> = ({
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
         {/* Brand / Logo */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 shrink-0">
           <div className="relative flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-[#f6821f] to-[#ff9838] text-white shadow-md shadow-orange-500/25">
             <Cloud className="w-5 h-5 fill-current" />
             <span className="absolute -bottom-0.5 -right-0.5 flex h-3 w-3">
@@ -50,23 +73,45 @@ export const GlassNavbar: React.FC<GlassNavbarProps> = ({
               </span>
             </div>
             <span className="text-xs text-slate-500 dark:text-slate-400 hidden sm:block">
-              WAF, Page Shield, Firewall & Cache Rules Inspector
+              WAF, Page Shield, Firewall &amp; Cache Rules Inspector
             </span>
           </div>
         </div>
 
-        {/* Center / Status Pill */}
-        <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full backdrop-blur-md bg-white/50 dark:bg-slate-900/40 border border-white/60 dark:border-white/10 text-xs text-slate-600 dark:text-slate-400">
-          <Activity className="w-3.5 h-3.5 text-emerald-500" />
-          <span className="font-mono text-[11px]">Proxy: /api/cf</span>
-          <span className="text-slate-300 dark:text-slate-600">•</span>
-          <span className="inline-flex items-center gap-1 text-slate-500 dark:text-slate-400">
-            <Shield className="w-3 h-3 text-orange-500" /> Secure CSP
-          </span>
-        </div>
+        {/* Center / Status Pill — show user email & auth mode when logged in */}
+        {isAuthenticated ? (
+          <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full backdrop-blur-md bg-white/50 dark:bg-slate-900/40 border border-white/60 dark:border-white/10 text-xs text-slate-600 dark:text-slate-400">
+            <User className="w-3.5 h-3.5 text-emerald-500" />
+            <span className="font-medium text-slate-800 dark:text-slate-200 max-w-[200px] truncate">
+              {email}
+            </span>
+            <span className="text-slate-300 dark:text-slate-600">•</span>
+            {accountLevelOnly ? (
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 text-[11px] font-semibold">
+                <Building2 className="w-3 h-3" />
+                Account Level
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-blue-500/10 text-blue-600 dark:text-blue-400 text-[11px] font-semibold">
+                <Globe className="w-3 h-3" />
+                All Zones
+              </span>
+            )}
+          </div>
+        ) : (
+          <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full backdrop-blur-md bg-white/50 dark:bg-slate-900/40 border border-white/60 dark:border-white/10 text-xs text-slate-600 dark:text-slate-400">
+            <Activity className="w-3.5 h-3.5 text-emerald-500" />
+            <span className="font-mono text-[11px]">Proxy: /api/cf</span>
+            <span className="text-slate-300 dark:text-slate-600">•</span>
+            <span className="inline-flex items-center gap-1 text-slate-500 dark:text-slate-400">
+              <Shield className="w-3 h-3 text-orange-500" /> Secure CSP
+            </span>
+          </div>
+        )}
 
-        {/* Right Controls: Theme Switch */}
-        <div className="flex items-center gap-3">
+        {/* Right Controls */}
+        <div className="flex items-center gap-3 shrink-0">
+          {/* Theme Segmented Control (desktop) */}
           <div className="hidden sm:flex items-center gap-2 bg-slate-200/50 dark:bg-slate-800/50 backdrop-blur-md p-1 rounded-xl border border-white/40 dark:border-white/10">
             <button
               type="button"
@@ -96,7 +141,7 @@ export const GlassNavbar: React.FC<GlassNavbarProps> = ({
             </button>
           </div>
 
-          {/* Quick GlassSwitch toggle for mobile or compact view */}
+          {/* Quick GlassSwitch toggle for mobile */}
           <div className="sm:hidden flex items-center">
             <GlassSwitch
               checked={isDark}
@@ -108,21 +153,18 @@ export const GlassNavbar: React.FC<GlassNavbarProps> = ({
             />
           </div>
 
-          <GlassButton
-            variant="glass"
-            size="sm"
-            className="hidden sm:inline-flex"
-            onClick={toggleTheme}
-            leftIcon={
-              isDark ? (
-                <Sun className="w-4 h-4 text-amber-500" />
-              ) : (
-                <Moon className="w-4 h-4 text-indigo-500" />
-              )
-            }
-          >
-            {isDark ? 'Tryb jasny' : 'Tryb ciemny'}
-          </GlassButton>
+          {/* Logout button — only when authenticated */}
+          {isAuthenticated && (
+            <GlassButton
+              variant="ghost"
+              size="sm"
+              onClick={handleLogout}
+              leftIcon={<LogOut className="w-4 h-4" />}
+              className="text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-500/10 dark:hover:bg-red-500/10"
+            >
+              <span className="hidden sm:inline">Wyloguj</span>
+            </GlassButton>
+          )}
         </div>
       </div>
     </header>

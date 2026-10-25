@@ -29,9 +29,23 @@ import {
 import { GlassButton } from './components/ui/GlassButton'
 import { GlassInput } from './components/ui/GlassInput'
 import { GlassSwitch } from './components/ui/GlassSwitch'
+import { LandingPage } from './pages/LandingPage'
 import { useThemeStore } from './store/useThemeStore'
+import { useAuthStore, selectIsAuthenticated } from './store/useAuthStore'
 
 export function App() {
+  const isAuthenticated = useAuthStore(selectIsAuthenticated)
+
+  // Show landing page if not authenticated
+  if (!isAuthenticated) {
+    return <LandingPage />
+  }
+
+  return <Dashboard />
+}
+
+/** Main dashboard — rendered only when the user is authenticated */
+function Dashboard() {
   const { theme, toggleTheme } = useThemeStore()
   const [filterEnabled, setFilterEnabled] = useState(true)
   const [autoSync, setAutoSync] = useState(false)
@@ -191,7 +205,7 @@ export function App() {
               </span>
             </div>
             <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-              Edge PoP Frankfurt & Warsaw
+              Edge PoP Frankfurt &amp; Warsaw
             </p>
           </GlassCard>
 
@@ -210,7 +224,7 @@ export function App() {
               </span>
             </div>
             <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-              CORS & CSP Zabezpieczone
+              CORS &amp; CSP Zabezpieczone
             </p>
           </GlassCard>
         </section>
