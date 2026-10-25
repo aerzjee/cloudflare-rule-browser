@@ -214,15 +214,22 @@ export const ConfirmDeleteDialog: React.FC<ConfirmDeleteDialogProps> = ({
                     </span>
                   </div>
 
-                  <div className="flex items-center gap-1 text-xs text-slate-500">
+                  <div className="flex items-center gap-1.5 text-xs text-slate-500">
                     {singleRule.scopeType === 'account' ? (
-                      <span className="flex items-center gap-1">
-                        <Building2 className="w-3 h-3 text-indigo-500" /> Poziom konta
+                      <span className="flex items-center gap-1.5 font-medium text-slate-800 dark:text-slate-200">
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-bold font-mono uppercase bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border border-indigo-500/25">
+                          ACCOUNT
+                        </span>
+                        <Building2 className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                        <span>{singleRule.accountName || 'Całe konto'}</span>
                       </span>
                     ) : (
-                      <span className="flex items-center gap-1">
-                        <Globe className="w-3 h-3 text-blue-500" /> Domena:{' '}
-                        {singleRule.zoneName || singleRule.zoneId}
+                      <span className="flex items-center gap-1.5 font-medium text-slate-800 dark:text-slate-200">
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-bold font-mono uppercase bg-blue-500/15 text-blue-600 dark:text-blue-400 border border-blue-500/25">
+                          ZONE
+                        </span>
+                        <Globe className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+                        <span>{singleRule.zoneName || 'Strefa Cloudflare'}</span>
                       </span>
                     )}
                   </div>
@@ -235,14 +242,26 @@ export const ConfirmDeleteDialog: React.FC<ConfirmDeleteDialogProps> = ({
                   {rules.slice(0, 8).map((r) => (
                     <div
                       key={r.id}
-                      className="flex items-center justify-between text-xs font-mono"
+                      className="flex items-center justify-between text-xs"
                     >
-                      <span className="truncate max-w-[280px]">
+                      <span className="font-mono truncate max-w-[260px] text-slate-800 dark:text-slate-200">
                         {r.target}: {r.value}
                       </span>
-                      <span className="text-[10px] uppercase font-semibold text-slate-500">
-                        {r.scopeType === 'account' ? 'account' : r.zoneName || 'zone'}
-                      </span>
+                      {r.scopeType === 'account' ? (
+                        <span
+                          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold font-mono uppercase bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border border-indigo-500/25"
+                          title={r.accountName || 'Całe konto'}
+                        >
+                          ACCOUNT
+                        </span>
+                      ) : (
+                        <span
+                          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold font-mono uppercase bg-blue-500/15 text-blue-600 dark:text-blue-400 border border-blue-500/25"
+                          title={r.zoneName || 'Strefa'}
+                        >
+                          ZONE
+                        </span>
+                      )}
                     </div>
                   ))}
                   {rules.length > 8 && (

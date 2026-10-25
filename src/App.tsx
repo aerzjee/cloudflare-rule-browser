@@ -61,13 +61,18 @@ function Dashboard() {
     progress,
   } = useAccessRulesQuery()
 
-  // Row selection state for TanStack Table (keyed by `${scopeType}-${zoneId??accountId}-${id}`)
+  // Row selection state for TanStack Table (keyed by getRuleRowId)
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
+
+  const getRuleRowId = (rule: NormalizedAccessRule) =>
+    rule.scopeType === 'account'
+      ? `account-${rule.accountId}-${rule.id}`
+      : `zone-${rule.zoneId}-${rule.id}`
 
   // Compute selected NormalizedAccessRule items based on rowSelection keys
   const selectedRules = useMemo(() => {
     return rules.filter((rule) => {
-      const key = `${rule.scopeType}-${rule.zoneId ?? rule.accountId}-${rule.id}`
+      const key = getRuleRowId(rule)
       return Boolean(rowSelection[key])
     })
   }, [rules, rowSelection])
@@ -95,9 +100,7 @@ function Dashboard() {
 
   const handleDeleteSuccess = (deleted: NormalizedAccessRule[]) => {
     // Clear deleted items from selection
-    const deletedKeys = new Set(
-      deleted.map((r) => `${r.scopeType}-${r.zoneId ?? r.accountId}-${r.id}`)
-    )
+    const deletedKeys = new Set(deleted.map(getRuleRowId))
     setRowSelection((prev) => {
       const next = { ...prev }
       for (const k of deletedKeys) {

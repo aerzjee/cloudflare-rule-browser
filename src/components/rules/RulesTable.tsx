@@ -297,8 +297,8 @@ export const RulesTable: React.FC<RulesTableProps> = ({
         id: 'zone',
         accessorFn: (row) =>
           row.scopeType === 'account'
-            ? 'Account Rule'
-            : row.zoneName || row.zoneId || '',
+            ? `Account ${row.accountName || ''}`
+            : `Zone ${row.zoneName || row.zoneId || ''}`,
         header: ({ column }) => {
           const isSorted = column.getIsSorted()
           return (
@@ -322,19 +322,39 @@ export const RulesTable: React.FC<RulesTableProps> = ({
           const rule = row.original
           if (rule.scopeType === 'account') {
             return (
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold backdrop-blur-md bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/25 shadow-sm">
-                <Building2 className="w-3.5 h-3.5 text-indigo-500" />
-                Account Rule
-              </span>
+              <div className="flex items-center gap-2">
+                <span
+                  title={rule.rawScopeType ? `ACCOUNT (${rule.rawScopeType})` : 'ACCOUNT'}
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold font-mono uppercase bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border border-indigo-500/25 shadow-sm shrink-0"
+                >
+                  <Building2 className="w-3 h-3 text-indigo-500" />
+                  ACCOUNT
+                </span>
+                <span
+                  className="font-medium text-sm text-slate-800 dark:text-slate-200 truncate"
+                  title={rule.accountName}
+                >
+                  {rule.accountName || 'Całe konto'}
+                </span>
+              </div>
             )
           }
 
           return (
             <div className="flex items-center gap-2">
-              <Globe className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+              <span
+                title="ZONE"
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold font-mono uppercase bg-blue-500/15 text-blue-600 dark:text-blue-400 border border-blue-500/25 shadow-sm shrink-0"
+              >
+                <Globe className="w-3 h-3 text-blue-500" />
+                ZONE
+              </span>
               <div className="flex flex-col min-w-0">
-                <span className="font-medium text-sm text-slate-900 dark:text-slate-100 truncate">
-                  {rule.zoneName || 'Nieznana domena'}
+                <span
+                  className="font-medium text-sm text-slate-900 dark:text-slate-100 truncate"
+                  title={rule.zoneName}
+                >
+                  {rule.zoneName || 'Strefa Cloudflare'}
                 </span>
                 {rule.zoneId && (
                   <span className="font-mono text-[10px] text-slate-400 truncate">
@@ -566,8 +586,11 @@ export const RulesTable: React.FC<RulesTableProps> = ({
       rowSelection,
       pagination,
     },
-    // UWAGA: Konfiguracja getRowId zgodna z wymaganiem promptu
-    getRowId: (row) => `${row.scopeType}-${row.zoneId ?? row.accountId}-${row.id}`,
+    // UWAGA: Konfiguracja getRowId zgodna ze specyfikacją Cloudflare scope
+    getRowId: (row) =>
+      row.scopeType === 'account'
+        ? `account-${row.accountId}-${row.id}`
+        : `zone-${row.zoneId}-${row.id}`,
     onSortingChange: setSorting,
     onGlobalFilterChange: setGlobalFilter,
     onRowSelectionChange: setRowSelection,

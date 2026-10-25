@@ -56,6 +56,13 @@ export async function fetchAllPages<T>(
 }
 
 /**
+ * Helper sprawdzający, czy dany typ zakresu Cloudflare reprezentuje poziom konta.
+ * W Cloudflare API v4 IP Access Rules zwracają 'user', 'organization' lub 'account'.
+ */
+export const isAccountLevelScope = (type?: string): boolean =>
+  type === 'user' || type === 'organization' || type === 'account'
+
+/**
  * Normalizes a raw Cloudflare access rule into a unified NormalizedAccessRule.
  */
 export function normalizeAccessRule(
@@ -64,9 +71,33 @@ export function normalizeAccessRule(
     zoneId?: string
     zoneName?: string
     accountId?: string
+    accountName?: string
   }
 ): NormalizedAccessRule {
-  const isAccountScope = rule.scope?.type === 'account'
+  const rawType = rule.scope?.type
+  const isAccount =
+    isAccountLevelScope(rawType) || (!context?.zoneId && Boolean(context?.accountId))
+
+  if (isAccount) {
+    return {
+      id: rule.id,
+      target: rule.configuration?.target || '',
+      value: rule.configuration?.value || '',
+      mode: rule.mode,
+      notes: rule.notes || '',
+      created_on: rule.created_on || '',
+      scopeType: 'account',
+      rawScopeType: (rawType as 'user' | 'organization' | 'zone' | 'account') || 'account',
+      accountId: context?.accountId || rule.scope?.id,
+      accountName:
+        context?.accountName ||
+        rule.scope?.name ||
+        rule.scope?.email ||
+        'Konto Cloudflare',
+      zoneId: undefined,
+      zoneName: undefined,
+    }
+  }
 
   return {
     id: rule.id,
@@ -75,16 +106,12 @@ export function normalizeAccessRule(
     mode: rule.mode,
     notes: rule.notes || '',
     created_on: rule.created_on || '',
-    scopeType: isAccountScope ? 'account' : 'zone',
-    zoneId: isAccountScope
-      ? undefined
-      : context?.zoneId || (rule.scope?.type === 'zone' ? rule.scope.id : undefined),
-    zoneName: isAccountScope
-      ? undefined
-      : context?.zoneName || (rule.scope?.type === 'zone' ? rule.scope.name : undefined),
-    accountId: isAccountScope
-      ? (rule.scope?.id || context?.accountId)
-      : context?.accountId,
+    scopeType: 'zone',
+    rawScopeType: 'zone',
+    zoneId: context?.zoneId || (rule.scope?.type === 'zone' ? rule.scope.id : undefined),
+    zoneName: context?.zoneName || (rule.scope?.type === 'zone' ? rule.scope.name : undefined),
+    accountId: context?.accountId,
+    accountName: context?.accountName,
   }
 }
 
@@ -153,7 +180,10 @@ export async function fetchAccessRules(
           const key = `account-${rule.id}`
           rulesMap.set(
             key,
-            normalizeAccessRule(rule, { accountId: account.id })
+            normalizeAccessRule(rule, {
+              accountId: account.id,
+              accountName: account.name || rule.scope?.name || rule.scope?.email || 'Konto Cloudflare',
+            })
           )
         }
       } catch (err) {
@@ -201,7 +231,10 @@ export async function fetchAccessRules(
         for (const rule of rules) {
           rulesMap.set(
             `account-${rule.id}`,
-            normalizeAccessRule(rule, { accountId: account.id })
+            normalizeAccessRule(rule, {
+              accountId: account.id,
+              accountName: account.name || rule.scope?.name || rule.scope?.email || 'Konto Cloudflare',
+            })
           )
         }
       } catch (err) {
@@ -240,14 +273,19 @@ export async function fetchAccessRules(
         )
 
         for (const rule of rules) {
-          if (rule.scope?.type === 'account') {
+          if (isAccountLevelScope(rule.scope?.type)) {
             // Reguła z poziomu konta – pojawi się w tabeli tylko raz
             const key = `account-${rule.id}`
             if (!rulesMap.has(key)) {
               rulesMap.set(
                 key,
                 normalizeAccessRule(rule, {
-                  accountId: zone.account?.id || rule.scope.id,
+                  accountId: zone.account?.id || rule.scope?.id,
+                  accountName:
+                    zone.account?.name ||
+                    rule.scope?.name ||
+                    rule.scope?.email ||
+                    'Konto Cloudflare',
                 })
               )
             }
@@ -260,6 +298,7 @@ export async function fetchAccessRules(
                 zoneId: zone.id,
                 zoneName: zone.name,
                 accountId: zone.account?.id,
+                accountName: zone.account?.name,
               })
             )
           }
@@ -302,10 +341,10 @@ export async function fetchAccessRules(
 export async function deleteAccessRule(
   rule: NormalizedAccessRule
 ): Promise<{ id: string }> {
-  if (rule.scopeType === 'account') {
+  if (rule.scopeType === 'account' || isAccountLevelScope(rule.rawScopeType)) {
     if (!rule.accountId) {
       throw new Error(
-        `Nie można usunąć reguły ${rule.id}: brak wymaganego accountId dla reguły na poziomie konta.`
+        `Brak wymaganego accountId dla reguły konta ${rule.id}`
       )
     }
     const res = await cfFetch<{ id: string }>(

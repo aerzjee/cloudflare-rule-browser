@@ -49,10 +49,10 @@ export type AccessRuleMode =
   | 'managed_challenge'
 
 export interface CloudflareAccessRuleScope {
-  id: string
+  id?: string
   name?: string
-  type: 'zone' | 'account' | string
   email?: string
+  type?: 'user' | 'organization' | 'zone' | 'account' | string
 }
 
 export interface CloudflareAccessRuleConfiguration {
@@ -78,10 +78,12 @@ export interface NormalizedAccessRule {
   mode: AccessRuleMode | string
   notes: string
   created_on: string
-  scopeType: 'zone' | 'account'
+  scopeType: 'account' | 'zone'
+  rawScopeType?: 'user' | 'organization' | 'zone' | 'account' | string
+  accountId?: string
+  accountName?: string
   zoneId?: string
   zoneName?: string
-  accountId?: string
 }
 
 export interface FetchProgress {
