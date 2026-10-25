@@ -19,6 +19,7 @@ import { useSettingsStore } from '../../store/useSettingsStore'
 import { clearAllCachedRules } from '../../utils/rulesCache'
 import { GlassButton } from '../ui/GlassButton'
 import { GlassSwitch } from '../ui/GlassSwitch'
+import { AutoRefreshBadge } from './AutoRefreshBadge'
 import { cn } from '../../lib/utils'
 
 const SettingsModal = lazy(() => import('./SettingsModal'))
@@ -190,18 +191,11 @@ export const GlassNavbar: React.FC<GlassNavbarProps> = ({
               )}
             </button>
 
-            {/* Dyskretny badge informujący o aktywnym interwale */}
-            {autoRefreshInterval > 0 && (
-              <button
-                type="button"
-                onClick={handleOpenSettings}
-                title="Kliknij, aby zmienić ustawienia cyklicznego odświeżania"
-                className="hidden xl:inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-mono font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 cursor-pointer hover:bg-emerald-500/20 transition-colors"
-              >
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                Auto: {formatIntervalLabel(autoRefreshInterval)}
-              </button>
-            )}
+            {/* Wyizolowany komponent odliczający na żywo czas do następnego odświeżenia */}
+            <AutoRefreshBadge
+              onClick={handleOpenSettings}
+              className="hidden lg:inline-flex"
+            />
           </div>
 
           {/* Theme Segmented Control (desktop) */}

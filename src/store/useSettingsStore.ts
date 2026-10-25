@@ -10,12 +10,21 @@ export interface SettingsState {
   autoRefreshInterval: number
   /** Mode of auto-refresh: first_page (delta sync) vs full (all pages) */
   autoRefreshMode: AutoRefreshMode
+  /** Timestamp Date.now() ostatniego udanego pobrania lub odświeżenia reguł */
+  lastRefreshAt: number | null
+  /** Timestamp Date.now() planowanego kolejnego automatycznego odświeżenia */
+  nextRefreshAt: number | null
+  /** Flaga informująca, czy w danej chwili trwa odświeżanie w tle */
+  isAutoRefreshing: boolean
 }
 
 export interface SettingsActions {
   setConcurrency: (val: number) => void
   setAutoRefreshInterval: (interval: number) => void
   setAutoRefreshMode: (mode: AutoRefreshMode) => void
+  markRefreshed: () => void
+  scheduleNextRefresh: () => void
+  setIsAutoRefreshing: (val: boolean) => void
   resetSettings: () => void
 }
 
@@ -25,11 +34,14 @@ export const DEFAULT_SETTINGS: SettingsState = {
   concurrency: 2,
   autoRefreshInterval: 0,
   autoRefreshMode: 'first_page',
+  lastRefreshAt: null,
+  nextRefreshAt: null,
+  isAutoRefreshing: false,
 }
 
 export const useSettingsStore = create<SettingsState & SettingsActions>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       ...DEFAULT_SETTINGS,
 
       setConcurrency: (val: number) =>
@@ -41,7 +53,11 @@ export const useSettingsStore = create<SettingsState & SettingsActions>()(
         const allowedIntervals = [0, 30, 60, 300, 600]
         const num = Math.max(0, Math.round(Number(interval) || 0))
         const validated = allowedIntervals.includes(num) ? num : 0
-        set({ autoRefreshInterval: validated })
+        const now = Date.now()
+        set({
+          autoRefreshInterval: validated,
+          nextRefreshAt: validated > 0 ? now + validated * 1000 : null,
+        })
       },
 
       setAutoRefreshMode: (mode: AutoRefreshMode) =>
@@ -49,11 +65,46 @@ export const useSettingsStore = create<SettingsState & SettingsActions>()(
           autoRefreshMode: mode === 'full' ? 'full' : 'first_page',
         }),
 
-      resetSettings: () => set({ ...DEFAULT_SETTINGS }),
+      markRefreshed: () => {
+        const now = Date.now()
+        const interval = get().autoRefreshInterval
+        set({
+          lastRefreshAt: now,
+          nextRefreshAt: interval > 0 ? now + interval * 1000 : null,
+          isAutoRefreshing: false,
+        })
+      },
+
+      scheduleNextRefresh: () => {
+        const now = Date.now()
+        const interval = get().autoRefreshInterval
+        set({
+          nextRefreshAt: interval > 0 ? now + interval * 1000 : null,
+        })
+      },
+
+      setIsAutoRefreshing: (val: boolean) =>
+        set({
+          isAutoRefreshing: val,
+        }),
+
+      resetSettings: () =>
+        set({
+          ...DEFAULT_SETTINGS,
+          lastRefreshAt: null,
+          nextRefreshAt: null,
+          isAutoRefreshing: false,
+        }),
     }),
     {
       name: SETTINGS_STORAGE_NAME,
       storage: createJSONStorage(() => localStorage),
+      // Zapisuj w localStorage wyłącznie ustawienia konfiguracyjne (pomijaj runtime fields)
+      partialize: (state) => ({
+        concurrency: state.concurrency,
+        autoRefreshInterval: state.autoRefreshInterval,
+        autoRefreshMode: state.autoRefreshMode,
+      }),
     }
   )
 )

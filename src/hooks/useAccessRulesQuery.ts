@@ -57,6 +57,10 @@ export function useAccessRulesQuery(): UseAccessRulesQueryResult {
             percentage: 100,
             label: `Wczytano ${cached.length} reguł z pamięci IndexedDB.`,
           })
+          // Jeśli znacznik ostatniego odświeżenia nie jest jeszcze ustawiony, zainicjalizuj go
+          if (!useSettingsStore.getState().lastRefreshAt) {
+            useSettingsStore.getState().markRefreshed()
+          }
           return cached
         }
       }
@@ -79,6 +83,9 @@ export function useAccessRulesQuery(): UseAccessRulesQueryResult {
 
       // 3. Zapisz w IndexedDB w tle
       await setCachedRules(accountLevelOnly, freshRules)
+
+      // Zarejestruj pomyślne odświeżenie danych i zaplanuj kolejne
+      useSettingsStore.getState().markRefreshed()
 
       return freshRules
     },
@@ -109,12 +116,29 @@ export function useAccessRulesQuery(): UseAccessRulesQueryResult {
       return
     }
 
+    // Upewnij się, że czas kolejnego odświeżenia jest wyznaczony
+    if (!useSettingsStore.getState().nextRefreshAt) {
+      useSettingsStore.getState().scheduleNextRefresh()
+    }
+
     const intervalId = setInterval(async () => {
-      // Pomiń odświeżanie, jeśli aktualnie trwa inne zapytanie
-      if (query.isFetching) return
+      // Pomiń odświeżanie, jeśli aktualnie trwa inne zapytanie sieciowe
+      if (query.isFetching) {
+        useSettingsStore.getState().scheduleNextRefresh()
+        return
+      }
+
+      useSettingsStore.getState().setIsAutoRefreshing(true)
 
       if (autoRefreshMode === 'full') {
-        await forceRefresh()
+        try {
+          await forceRefresh()
+          useSettingsStore.getState().markRefreshed()
+        } catch (err) {
+          console.warn('[AutoRefresh] Błąd podczas pełnego odświeżania:', err)
+          useSettingsStore.getState().setIsAutoRefreshing(false)
+          useSettingsStore.getState().scheduleNextRefresh()
+        }
       } else {
         // Quick Delta Sync (pobranie tylko 1. strony - 100 najnowszych reguł)
         try {
@@ -163,8 +187,12 @@ export function useAccessRulesQuery(): UseAccessRulesQueryResult {
               return updated
             })
           }
+
+          useSettingsStore.getState().markRefreshed()
         } catch (err) {
           console.warn('[AutoRefresh] Błąd podczas synchronizacji różnicowej:', err)
+          useSettingsStore.getState().setIsAutoRefreshing(false)
+          useSettingsStore.getState().scheduleNextRefresh()
         }
       }
     }, autoRefreshInterval * 1000)
