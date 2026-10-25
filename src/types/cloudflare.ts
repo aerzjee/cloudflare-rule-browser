@@ -48,6 +48,8 @@ export type AccessRuleMode =
   | 'js_challenge'
   | 'managed_challenge'
 
+export type CloudflareAccessRuleMode = AccessRuleMode
+
 export interface CloudflareAccessRuleScope {
   id?: string
   name?: string

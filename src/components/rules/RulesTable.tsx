@@ -17,7 +17,6 @@ import {
   ArrowDown,
   ArrowUp,
   ArrowUpDown,
-  Ban,
   Building2,
   Calendar,
   Check,
@@ -26,7 +25,6 @@ import {
   ChevronsLeft,
   ChevronsRight,
   Copy,
-  Cpu,
   Filter,
   Globe,
   Laptop,
@@ -35,9 +33,6 @@ import {
   RefreshCw,
   Search,
   Server,
-  ShieldAlert,
-  ShieldCheck,
-  ShieldQuestion,
   Trash2,
   X,
 } from 'lucide-react'
@@ -45,6 +40,8 @@ import type { NormalizedAccessRule } from '../../types/cloudflare'
 import { GlassButton } from '../ui/GlassButton'
 import { GlassCard } from '../ui/GlassCard'
 import { GlassInput } from '../ui/GlassInput'
+import { InlineModeDropdown } from './InlineModeDropdown'
+import { InlineNoteEditor } from './InlineNoteEditor'
 import { cn } from '../../lib/utils'
 
 export interface RulesTableProps {
@@ -175,61 +172,6 @@ function getTargetIcon(target: string) {
   if (t === 'asn') return <Server className="w-3.5 h-3.5" />
   if (t === 'country') return <Globe className="w-3.5 h-3.5" />
   return <Laptop className="w-3.5 h-3.5" />
-}
-
-function getModeBadge(mode: string) {
-  const m = mode.toLowerCase()
-
-  if (m === 'block') {
-    return (
-      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold backdrop-blur-md bg-red-500/15 text-red-600 dark:text-red-400 border border-red-500/30 shadow-sm">
-        <Ban className="w-3.5 h-3.5" />
-        Block
-      </span>
-    )
-  }
-
-  if (m === 'whitelist') {
-    return (
-      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold backdrop-blur-md bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 shadow-sm">
-        <ShieldCheck className="w-3.5 h-3.5" />
-        Whitelist
-      </span>
-    )
-  }
-
-  if (m === 'managed_challenge') {
-    return (
-      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold backdrop-blur-md bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 shadow-sm">
-        <ShieldAlert className="w-3.5 h-3.5 text-[#f6821f]" />
-        Managed Challenge
-      </span>
-    )
-  }
-
-  if (m === 'js_challenge') {
-    return (
-      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold backdrop-blur-md bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 shadow-sm">
-        <Cpu className="w-3.5 h-3.5" />
-        JS Challenge
-      </span>
-    )
-  }
-
-  if (m === 'challenge') {
-    return (
-      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold backdrop-blur-md bg-orange-500/15 text-[#f6821f] border border-orange-500/30 shadow-sm">
-        <ShieldQuestion className="w-3.5 h-3.5" />
-        Challenge
-      </span>
-    )
-  }
-
-  return (
-    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold backdrop-blur-md bg-slate-500/10 text-slate-700 dark:text-slate-300 border border-slate-400/20 shadow-sm">
-      {mode}
-    </span>
-  )
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -436,7 +378,7 @@ export const RulesTable: React.FC<RulesTableProps> = ({
             </button>
           )
         },
-        cell: ({ row }) => getModeBadge(row.original.mode),
+        cell: ({ row }) => <InlineModeDropdown rule={row.original} />,
       },
 
       // 1e. Notes
@@ -462,20 +404,7 @@ export const RulesTable: React.FC<RulesTableProps> = ({
             </button>
           )
         },
-        cell: ({ row }) => {
-          const notes = row.original.notes
-          if (!notes) {
-            return <span className="text-xs text-slate-400 italic">Brak notatki</span>
-          }
-          return (
-            <span
-              className="text-xs text-slate-700 dark:text-slate-300 max-w-xs block truncate"
-              title={notes}
-            >
-              {notes}
-            </span>
-          )
-        },
+        cell: ({ row }) => <InlineNoteEditor rule={row.original} />,
       },
 
       // 1f. Created On

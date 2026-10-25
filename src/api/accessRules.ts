@@ -3,6 +3,7 @@ import { cfFetch } from './cfClient'
 import { useSettingsStore } from '../store/useSettingsStore'
 import type {
   CloudflareAccessRule,
+  CloudflareAccessRuleMode,
   CloudflareAccount,
   CloudflareZone,
   FetchProgress,
@@ -439,6 +440,62 @@ export async function deleteAccessRule(
     }
   )
   return res.result
+}
+
+export interface UpdateAccessRulePayload {
+  mode?: CloudflareAccessRuleMode | string
+  notes?: string
+}
+
+/**
+ * Aktualizuje regułę dostępu (mode lub notes) za pomocą metody PATCH.
+ * Zgodnie z oficjalną dokumentacją Cloudflare API v4 dla IP Access Rules:
+ * - Dla 'account': PATCH /api/cf/accounts/${rule.accountId}/firewall/access_rules/rules/${rule.id}
+ * - Dla 'zone': PATCH /api/cf/zones/${rule.zoneId}/firewall/access_rules/rules/${rule.id}
+ */
+export async function updateAccessRule(
+  rule: NormalizedAccessRule,
+  payload: UpdateAccessRulePayload
+): Promise<NormalizedAccessRule> {
+  const isAccount = rule.scopeType === 'account' || isAccountLevelScope(rule.rawScopeType)
+  const endpoint = isAccount
+    ? `/accounts/${rule.accountId}/firewall/access_rules/rules/${rule.id}`
+    : `/zones/${rule.zoneId}/firewall/access_rules/rules/${rule.id}`
+
+  if (isAccount && !rule.accountId) {
+    throw new Error(`Brak wymaganego accountId dla reguły konta ${rule.id}`)
+  }
+  if (!isAccount && !rule.zoneId) {
+    throw new Error(`Brak wymaganego zoneId dla reguły strefy ${rule.id}`)
+  }
+
+  // Zawsze przekaż mode reguły (aktualne lub nowe), ponieważ Cloudflare API tego wymaga w PATCH
+  const bodyData: { mode: string; notes?: string } = {
+    mode: payload.mode ?? rule.mode,
+  }
+  if (payload.notes !== undefined) {
+    bodyData.notes = payload.notes
+  } else if (rule.notes) {
+    bodyData.notes = rule.notes
+  }
+
+  const res = await cfFetch<CloudflareAccessRule>(endpoint, {
+    method: 'PATCH',
+    body: JSON.stringify(bodyData),
+  })
+
+  const updatedRaw = res.result || {
+    ...rule,
+    mode: bodyData.mode,
+    notes: bodyData.notes,
+  }
+
+  return normalizeAccessRule(updatedRaw as CloudflareAccessRule, {
+    zoneId: rule.zoneId,
+    zoneName: rule.zoneName,
+    accountId: rule.accountId,
+    accountName: rule.accountName,
+  })
 }
 
 export interface BulkDeleteProgress {
