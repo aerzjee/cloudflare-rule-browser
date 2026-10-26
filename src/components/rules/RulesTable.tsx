@@ -216,6 +216,36 @@ export const RulesTable: React.FC<RulesTableProps> = ({
     pageSize: 25,
   })
 
+  // Synchronize and clean up rowSelection if selected rules were deleted or reconciled out
+  useEffect(() => {
+    if (!rowSelection || Object.keys(rowSelection).length === 0) return
+
+    const currentKeySet = new Set(
+      data.map((r) =>
+        r.scopeType === 'account'
+          ? `account-${r.accountId}-${r.id}`
+          : `zone-${r.zoneId}-${r.id}`
+      )
+    )
+
+    let hasStale = false
+    const cleanedSelection: RowSelectionState = {}
+
+    for (const [key, isSelected] of Object.entries(rowSelection)) {
+      if (isSelected) {
+        if (currentKeySet.has(key)) {
+          cleanedSelection[key] = true
+        } else {
+          hasStale = true
+        }
+      }
+    }
+
+    if (hasStale) {
+      setRowSelection(cleanedSelection)
+    }
+  }, [data, rowSelection, setRowSelection])
+
   // Columns definition
   const columns = useMemo<ColumnDef<NormalizedAccessRule>[]>(
     () => [

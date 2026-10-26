@@ -8,7 +8,9 @@ import type {
   CloudflareAccount,
   CloudflareZone,
   FetchProgress,
+  FirstPageDeltaResult,
   NormalizedAccessRule,
+  ScopeSyncMeta,
 } from '../types/cloudflare'
 
 /**
@@ -580,16 +582,130 @@ export async function bulkDeleteAccessRules(
   }
 }
 
+/** Unique key for access rule matching Cloudflare scope model */
+export function getRuleUniqueKey(rule: NormalizedAccessRule): string {
+  return rule.scopeType === 'account'
+    ? `account-${rule.accountId}-${rule.id}`
+    : `zone-${rule.zoneId}-${rule.id}`
+}
+
+/** Scope group identifier for rule reconciliation (account-{id} or zone-{id}) */
+export function getRuleScopeKey(rule: NormalizedAccessRule): string {
+  return rule.scopeType === 'account'
+    ? `account-${rule.accountId}`
+    : `zone-${rule.zoneId}`
+}
+
+export interface ReconcileDeltaResult {
+  reconciledRules: NormalizedAccessRule[]
+  newlyAddedKeys: string[]
+  deletedKeys: string[]
+}
+
 /**
- * Fast refresh of page 1 only (fetchFirstPageDelta):
- * - For accountLevelOnly === true: fetches ONLY page 1 (page=1&per_page=100&order=created_on&direction=desc) for the account.
- * - For accountLevelOnly === false: fetches only page 1 (page=1&per_page=100&order=created_on&direction=desc) for zones using pLimit(concurrency).
- * - Returns a normalized array NormalizedAccessRule[].
+ * Windowed Delta Reconciliation algorithm:
+ * - Updates existing rules present on page 1 with freshest API data.
+ * - Detects and removes rules deleted from Cloudflare:
+ *   - Condition A: scope totalPages <= 1 OR page 1 returned 0 rules (entire scope fits on page 1).
+ *   - Condition B: scope totalPages > 1, and rule's created_on >= oldestTimestampOnFirstPage (was inside page 1 window).
+ * - Preserves older rules living on pages 2..N (created_on < oldestTimestampOnFirstPage).
+ * - Prepends brand-new rules not previously seen in currentRules.
+ */
+export function reconcileFirstPageDelta(
+  currentRules: NormalizedAccessRule[],
+  deltaResult: FirstPageDeltaResult
+): ReconcileDeltaResult {
+  const { rules: deltaRules, scopeMetaMap } = deltaResult
+
+  // 1. Index delta rules by their unique key
+  const deltaRulesMap = new Map<string, NormalizedAccessRule>()
+  for (const delta of deltaRules) {
+    deltaRulesMap.set(getRuleUniqueKey(delta), delta)
+  }
+
+  // 2. Index current existing rules
+  const currentRulesKeySet = new Set<string>()
+  for (const r of currentRules) {
+    currentRulesKeySet.add(getRuleUniqueKey(r))
+  }
+
+  const keptRules: NormalizedAccessRule[] = []
+  const deletedKeys: string[] = []
+
+  // 3. Reconcile existing local rules
+  for (const localRule of currentRules) {
+    const ruleKey = getRuleUniqueKey(localRule)
+    const scopeKey = getRuleScopeKey(localRule)
+    const meta = scopeMetaMap.get(scopeKey)
+
+    // If no sync metadata exists for this scope (e.g. zone fetch failure), retain safely
+    if (!meta) {
+      keptRules.push(localRule)
+      continue
+    }
+
+    // Rule still exists on page 1 -> keep updated version
+    if (meta.returnedRuleKeys.has(ruleKey)) {
+      const updated = deltaRulesMap.get(ruleKey) ?? localRule
+      keptRules.push(updated)
+      continue
+    }
+
+    // Rule is missing from page 1 -> evaluate deletion conditions
+    const localTs = localRule.created_on ? Date.parse(localRule.created_on) : null
+
+    // Condition A: entire scope fits on 1 page (totalPages <= 1) OR page 1 is completely empty
+    const conditionA = meta.totalPages <= 1 || meta.returnedRuleKeys.size === 0
+
+    // Condition B: multiple pages, but local rule was created within or after page 1's time window
+    const conditionB =
+      meta.totalPages > 1 &&
+      meta.oldestTimestampOnFirstPage !== null &&
+      localTs !== null &&
+      !Number.isNaN(localTs) &&
+      localTs >= meta.oldestTimestampOnFirstPage
+
+    if (conditionA || conditionB) {
+      // Rule was deleted in Cloudflare -> purge from local list
+      deletedKeys.push(ruleKey)
+    } else {
+      // Rule is older than page 1 window (lives on pages 2..N) -> retain
+      keptRules.push(localRule)
+    }
+  }
+
+  // 4. Collect brand new rules from delta that were not in currentRules
+  const newRulesToPrepend: NormalizedAccessRule[] = []
+  const newlyAddedKeys: string[] = []
+
+  for (const delta of deltaRules) {
+    const key = getRuleUniqueKey(delta)
+    if (!currentRulesKeySet.has(key)) {
+      newRulesToPrepend.push(delta)
+      newlyAddedKeys.push(key)
+    }
+  }
+
+  // 5. Final reconciled array: brand new rules prepended, followed by retained/updated rules
+  const reconciledRules = [...newRulesToPrepend, ...keptRules]
+
+  return {
+    reconciledRules,
+    newlyAddedKeys,
+    deletedKeys,
+  }
+}
+
+/**
+ * Fast refresh of page 1 only with Windowed Reconciliation metadata:
+ * - For accountLevelOnly === true: fetches page 1 for account(s) and records ScopeSyncMeta.
+ * - For accountLevelOnly === false: fetches page 1 for zones and records ScopeSyncMeta.
+ * - Returns FirstPageDeltaResult { rules, scopeMetaMap }.
  */
 export async function fetchFirstPageRules(
   accountLevelOnlyOrOptions: boolean | { accountLevelOnly?: boolean; concurrency?: number } = false,
   concurrencyArg?: number
-): Promise<NormalizedAccessRule[]> {
+): Promise<FirstPageDeltaResult> {
   let accountLevelOnly = false
   let concurrency = useSettingsStore.getState().concurrency ?? 2
 
@@ -606,6 +722,7 @@ export async function fetchFirstPageRules(
   const effectiveConcurrency = concurrency
   const limit = pLimit(effectiveConcurrency)
   const rulesMap = new Map<string, NormalizedAccessRule>()
+  const scopeMetaMap = new Map<string, ScopeSyncMeta>()
 
   if (accountLevelOnly) {
     const accountsRes = await cfFetch<CloudflareAccount[]>('/accounts?page=1&per_page=50')
@@ -615,9 +732,27 @@ export async function fetchFirstPageRules(
         const res = await cfFetch<CloudflareAccessRule[]>(
           `/accounts/${account.id}/firewall/access_rules/rules?page=1&per_page=100&order=created_on&direction=desc`
         )
+        const totalPages =
+          res.result_info?.total_pages ??
+          (res.result_info?.total_count
+            ? Math.ceil(res.result_info.total_count / (res.result_info.per_page || 100))
+            : 1)
+
         const rules = res.result || []
+        const returnedRuleKeys = new Set<string>()
+        let oldestTimestampOnFirstPage: number | null = null
+
         for (const rule of rules) {
           const key = `account-${account.id}-${rule.id}`
+          returnedRuleKeys.add(key)
+
+          const ts = rule.created_on ? Date.parse(rule.created_on) : null
+          if (ts !== null && !Number.isNaN(ts)) {
+            if (oldestTimestampOnFirstPage === null || ts < oldestTimestampOnFirstPage) {
+              oldestTimestampOnFirstPage = ts
+            }
+          }
+
           rulesMap.set(
             key,
             normalizeAccessRule(rule, {
@@ -626,14 +761,26 @@ export async function fetchFirstPageRules(
             })
           )
         }
+
+        const scopeKey = `account-${account.id}`
+        scopeMetaMap.set(scopeKey, {
+          scopeKey,
+          totalPages,
+          returnedRuleKeys,
+          oldestTimestampOnFirstPage,
+        })
       } catch (err) {
         console.warn(`[fetchFirstPageRules] Error fetching account rules for ${account.name}:`, err)
       }
     }
-    return Array.from(rulesMap.values())
+
+    return {
+      rules: Array.from(rulesMap.values()),
+      scopeMetaMap,
+    }
   }
 
-  // All Zones
+  // All Zones mode
   const zonesRes = await cfFetch<CloudflareZone[]>('/zones?page=1&per_page=50')
   const zones = zonesRes.result || []
 
@@ -646,9 +793,27 @@ export async function fetchFirstPageRules(
         const res = await cfFetch<CloudflareAccessRule[]>(
           `/accounts/${account.id}/firewall/access_rules/rules?page=1&per_page=100&order=created_on&direction=desc`
         )
+        const totalPages =
+          res.result_info?.total_pages ??
+          (res.result_info?.total_count
+            ? Math.ceil(res.result_info.total_count / (res.result_info.per_page || 100))
+            : 1)
+
         const rules = res.result || []
+        const returnedRuleKeys = new Set<string>()
+        let oldestTimestampOnFirstPage: number | null = null
+
         for (const rule of rules) {
           const key = `account-${account.id}-${rule.id}`
+          returnedRuleKeys.add(key)
+
+          const ts = rule.created_on ? Date.parse(rule.created_on) : null
+          if (ts !== null && !Number.isNaN(ts)) {
+            if (oldestTimestampOnFirstPage === null || ts < oldestTimestampOnFirstPage) {
+              oldestTimestampOnFirstPage = ts
+            }
+          }
+
           rulesMap.set(
             key,
             normalizeAccessRule(rule, {
@@ -657,11 +822,23 @@ export async function fetchFirstPageRules(
             })
           )
         }
+
+        const scopeKey = `account-${account.id}`
+        scopeMetaMap.set(scopeKey, {
+          scopeKey,
+          totalPages,
+          returnedRuleKeys,
+          oldestTimestampOnFirstPage,
+        })
       } catch (err) {
         console.warn(`[fetchFirstPageRules] Error fetching account rules for ${account.name}:`, err)
       }
     }
-    return Array.from(rulesMap.values())
+
+    return {
+      rules: Array.from(rulesMap.values()),
+      scopeMetaMap,
+    }
   }
 
   const tasks = zones.map((zone) =>
@@ -670,35 +847,60 @@ export async function fetchFirstPageRules(
         const res = await cfFetch<CloudflareAccessRule[]>(
           `/zones/${zone.id}/firewall/access_rules/rules?page=1&per_page=100&order=created_on&direction=desc`
         )
+        const totalPages =
+          res.result_info?.total_pages ??
+          (res.result_info?.total_count
+            ? Math.ceil(res.result_info.total_count / (res.result_info.per_page || 100))
+            : 1)
+
         const rules = res.result || []
+        const returnedRuleKeys = new Set<string>()
+        let oldestTimestampOnFirstPage: number | null = null
+
         for (const rule of rules) {
+          let key: string
+          let normalized: NormalizedAccessRule
+
           if (isAccountLevelScope(rule.scope?.type)) {
             const accountId = zone.account?.id || rule.scope?.id
-            const key = `account-${accountId}-${rule.id}`
-            if (!rulesMap.has(key)) {
-              rulesMap.set(
-                key,
-                normalizeAccessRule(rule, {
-                  accountId,
-                  accountName:
-                    zone.account?.name ||
-                    rule.scope?.name ||
-                    rule.scope?.email ||
-                    'Cloudflare Account',
-                })
-              )
-            }
+            key = `account-${accountId}-${rule.id}`
+            normalized = normalizeAccessRule(rule, {
+              accountId,
+              accountName:
+                zone.account?.name ||
+                rule.scope?.name ||
+                rule.scope?.email ||
+                'Cloudflare Account',
+            })
           } else {
-            const key = `zone-${zone.id}-${rule.id}`
-            rulesMap.set(
-              key,
-              normalizeAccessRule(rule, {
-                zoneId: zone.id,
-                zoneName: zone.name,
-              })
-            )
+            key = `zone-${zone.id}-${rule.id}`
+            normalized = normalizeAccessRule(rule, {
+              zoneId: zone.id,
+              zoneName: zone.name,
+            })
+          }
+
+          returnedRuleKeys.add(key)
+
+          const ts = rule.created_on ? Date.parse(rule.created_on) : null
+          if (ts !== null && !Number.isNaN(ts)) {
+            if (oldestTimestampOnFirstPage === null || ts < oldestTimestampOnFirstPage) {
+              oldestTimestampOnFirstPage = ts
+            }
+          }
+
+          if (!rulesMap.has(key)) {
+            rulesMap.set(key, normalized)
           }
         }
+
+        const scopeKey = `zone-${zone.id}`
+        scopeMetaMap.set(scopeKey, {
+          scopeKey,
+          totalPages,
+          returnedRuleKeys,
+          oldestTimestampOnFirstPage,
+        })
       } catch (err) {
         console.warn(`[fetchFirstPageRules] Error fetching zone rules for ${zone.name}:`, err)
       }
@@ -706,7 +908,11 @@ export async function fetchFirstPageRules(
   )
 
   await Promise.all(tasks)
-  return Array.from(rulesMap.values())
+
+  return {
+    rules: Array.from(rulesMap.values()),
+    scopeMetaMap,
+  }
 }
 
 /** Alias for fast differential page 1 refresh */

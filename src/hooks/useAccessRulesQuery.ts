@@ -1,18 +1,17 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { fetchAccessRules, fetchFirstPageRules } from '../api/accessRules'
+import {
+  fetchAccessRules,
+  fetchFirstPageRules,
+  reconcileFirstPageDelta,
+  getRuleUniqueKey,
+} from '../api/accessRules'
 import { useAuthStore } from '../store/useAuthStore'
 import { useSettingsStore } from '../store/useSettingsStore'
 import { useHighlightStore } from '../store/useHighlightStore'
 import { getCachedRules, setCachedRules, clearCachedRules } from '../utils/rulesCache'
 import { getTranslations } from '../i18n/useTranslation'
 import type { FetchProgress, NormalizedAccessRule } from '../types/cloudflare'
-
-function getRuleKey(rule: NormalizedAccessRule): string {
-  return rule.scopeType === 'account'
-    ? `account-${rule.accountId}-${rule.id}`
-    : `zone-${rule.zoneId}-${rule.id}`
-}
 
 export interface UseAccessRulesQueryResult {
   rules: NormalizedAccessRule[]
@@ -43,6 +42,38 @@ export function useAccessRulesQuery(): UseAccessRulesQueryResult {
     label: '',
   })
 
+  const performDeltaSync = useCallback(async () => {
+    if (!email || !token) return
+    const { isMutatingRules, concurrency } = useSettingsStore.getState()
+    if (isMutatingRules) return
+
+    useSettingsStore.getState().setIsAutoRefreshing(true)
+    try {
+      const deltaResult = await fetchFirstPageRules(accountLevelOnly, concurrency)
+      const queryKey = ['cloudflare', 'access_rules', { email, accountLevelOnly }]
+      const currentRules = queryClient.getQueryData<NormalizedAccessRule[]>(queryKey) || []
+
+      const { reconciledRules, newlyAddedKeys } = reconcileFirstPageDelta(currentRules, deltaResult)
+
+      if (newlyAddedKeys.length > 0) {
+        useHighlightStore.getState().highlightNewRules(newlyAddedKeys)
+      }
+
+      queryClient.setQueryData<NormalizedAccessRule[]>(queryKey, reconciledRules)
+      await setCachedRules(accountLevelOnly, reconciledRules)
+    } catch (err) {
+      console.warn('[DeltaSync] Error during background reconciliation:', err)
+    } finally {
+      useSettingsStore.getState().markRefreshed()
+      useSettingsStore.getState().setIsAutoRefreshing(false)
+    }
+  }, [accountLevelOnly, email, queryClient, token])
+
+  const performDeltaSyncRef = useRef(performDeltaSync)
+  useEffect(() => {
+    performDeltaSyncRef.current = performDeltaSync
+  }, [performDeltaSync])
+
   const query = useQuery<NormalizedAccessRule[], Error>({
     queryKey: ['cloudflare', 'access_rules', { email, accountLevelOnly }],
     queryFn: async () => {
@@ -60,6 +91,13 @@ export function useAccessRulesQuery(): UseAccessRulesQueryResult {
           if (!useSettingsStore.getState().lastRefreshAt) {
             useSettingsStore.getState().markRefreshed()
           }
+
+          // Trigger a silent background First-Page Delta Sync (stale-while-revalidate)
+          // immediately after returning cached data to reconcile additions & deletions
+          setTimeout(() => {
+            void performDeltaSyncRef.current?.()
+          }, 50)
+
           return cached
         }
       }
@@ -127,7 +165,7 @@ export function useAccessRulesQuery(): UseAccessRulesQueryResult {
     }
 
     const intervalId = setInterval(async () => {
-      const { isMutatingRules, autoRefreshMode, concurrency } = useSettingsStore.getState()
+      const { isMutatingRules, autoRefreshMode } = useSettingsStore.getState()
 
       // Skip auto-refresh if a mutation is ongoing or query is actively fetching
       const isQueryFetching = queryClient.isFetching({ queryKey: ['cloudflare', 'access_rules'] }) > 0
@@ -149,55 +187,15 @@ export function useAccessRulesQuery(): UseAccessRulesQueryResult {
           // Compare fresh rules with previous ones to highlight newly synced entries
           const freshRules = queryClient.getQueryData<NormalizedAccessRule[]>(queryKey) || []
           if (previousRules.length > 0 && freshRules.length > 0) {
-            const prevKeys = new Set(previousRules.map(getRuleKey))
-            const newKeys = freshRules.filter((r) => !prevKeys.has(getRuleKey(r))).map(getRuleKey)
+            const prevKeys = new Set(previousRules.map(getRuleUniqueKey))
+            const newKeys = freshRules.filter((r) => !prevKeys.has(getRuleUniqueKey(r))).map(getRuleUniqueKey)
             if (newKeys.length > 0) {
               useHighlightStore.getState().highlightNewRules(newKeys)
             }
           }
         } else {
-          // Quick Delta Sync (fetch page 1 only - up to 100 newest rules)
-          const deltaRules = await fetchFirstPageRules(accountLevelOnly, concurrency)
-
-          if (deltaRules.length > 0) {
-            queryClient.setQueryData<NormalizedAccessRule[]>(queryKey, (old = []) => {
-              const existingMap = new Map<string, NormalizedAccessRule>()
-              for (const r of old) {
-                existingMap.set(getRuleKey(r), r)
-              }
-
-              const newRulesToPrepend: NormalizedAccessRule[] = []
-              const newlyAddedKeys: string[] = []
-
-              for (const delta of deltaRules) {
-                const key = getRuleKey(delta)
-                if (existingMap.has(key)) {
-                  existingMap.set(key, delta)
-                } else {
-                  newRulesToPrepend.push(delta)
-                  newlyAddedKeys.push(key)
-                  existingMap.set(key, delta)
-                }
-              }
-
-              if (newlyAddedKeys.length > 0) {
-                useHighlightStore.getState().highlightNewRules(newlyAddedKeys)
-              }
-
-              // Merge: prepend brand new rules + keep updated order of existing entries
-              const updated = [
-                ...newRulesToPrepend,
-                ...old.map((existing) => existingMap.get(getRuleKey(existing)) ?? existing),
-              ]
-
-              // Persist updated rules array to IndexedDB in background
-              setCachedRules(accountLevelOnly, updated).catch((err) =>
-                console.warn('[AutoRefresh] Error updating IndexedDB:', err)
-              )
-
-              return updated
-            })
-          }
+          // Quick Delta Sync with Windowed Reconciliation
+          await performDeltaSyncRef.current?.()
         }
       } catch (err) {
         console.warn('[AutoRefresh] Error during background refresh:', err)

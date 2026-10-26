@@ -96,3 +96,16 @@ export interface FetchProgress {
 }
 
 export type AccessRulesFetchProgress = FetchProgress
+
+export interface ScopeSyncMeta {
+  scopeKey: string
+  totalPages: number
+  returnedRuleKeys: Set<string>
+  oldestTimestampOnFirstPage: number | null
+}
+
+export interface FirstPageDeltaResult {
+  rules: NormalizedAccessRule[]
+  scopeMetaMap: Map<string, ScopeSyncMeta>
+}
+

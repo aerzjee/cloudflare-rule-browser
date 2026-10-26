@@ -1,14 +1,21 @@
 {
   "latestVersion": "1.1.1",
   "latestCommit": "b62945d",
-  "generatedAt": "2026-10-26T10:31:12.407Z",
+  "generatedAt": "2026-10-26T12:05:56.668Z",
   "releases": [
     {
       "version": "Unreleased / Next",
       "tag": "HEAD",
-      "commit": "667e646",
+      "commit": "83ce456",
       "date": "2026-10-26",
       "changes": [
+        {
+          "hash": "83ce456",
+          "date": "2026-10-26",
+          "type": "fix",
+          "scope": "sync,ui",
+          "message": "fix stuck auto-sync indicator after deletion, highlight newly synced rules, and prevent table layout shift on row selection"
+        },
         {
           "hash": "667e646",
           "date": "2026-10-26",
