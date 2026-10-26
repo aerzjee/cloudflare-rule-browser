@@ -1,14 +1,21 @@
 {
-  "latestVersion": "1.1.1",
-  "latestCommit": "b62945d",
-  "generatedAt": "2026-10-26T12:05:56.668Z",
+  "latestVersion": "1.1.2",
+  "latestCommit": "1e06174",
+  "generatedAt": "2026-10-26T12:20:53.211Z",
   "releases": [
     {
-      "version": "Unreleased / Next",
-      "tag": "HEAD",
-      "commit": "83ce456",
+      "version": "1.1.2",
+      "tag": "v1.1.2",
+      "commit": "1e06174",
       "date": "2026-10-26",
       "changes": [
+        {
+          "hash": "1e06174",
+          "date": "2026-10-26",
+          "type": "fix",
+          "scope": "sync",
+          "message": "reconcile and remove deleted first-page rules from memory and IndexedDB during delta sync"
+        },
         {
           "hash": "83ce456",
           "date": "2026-10-26",

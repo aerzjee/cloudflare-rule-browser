@@ -15,11 +15,13 @@ import { useQueryClient } from '@tanstack/react-query'
 import type { NormalizedAccessRule } from '../../types/cloudflare'
 import {
   bulkDeleteAccessRules,
+  getRuleUniqueKey,
   type BulkDeleteProgress,
   type BulkDeleteResult,
 } from '../../api/accessRules'
 import { useAuthStore } from '../../store/useAuthStore'
 import { useSettingsStore } from '../../store/useSettingsStore'
+import { useHighlightStore } from '../../store/useHighlightStore'
 import { setCachedRules } from '../../utils/rulesCache'
 import { useTranslation } from '../../i18n/useTranslation'
 import { GlassButton } from '../ui/GlassButton'
@@ -61,10 +63,18 @@ export const ConfirmDeleteDialog: React.FC<ConfirmDeleteDialogProps> = ({
       const deleteResult = await bulkDeleteAccessRules(rules, setProgress, concurrency)
       setResult(deleteResult)
 
-      // CRITICAL: Immediate cache update without network refetch/invalidation
+      // Immediate cache update with exit animation phase
       if (deleteResult.successful.length > 0) {
+        const deletedKeys = deleteResult.successful.map((r) => getRuleUniqueKey(r))
         const deletedIds = new Set(deleteResult.successful.map((r) => r.id))
 
+        // Phase 1 (Exit animation): Mark rows as removing to trigger CSS exit animation
+        useHighlightStore.getState().markRulesAsRemoving(deletedKeys)
+
+        // Wait 350ms for CSS exit animation to complete
+        await new Promise((resolve) => setTimeout(resolve, 350))
+
+        // Phase 2 (Purge): Remove deleted items from query cache and IndexedDB
         queryClient.setQueriesData<NormalizedAccessRule[]>(
           { queryKey: ['cloudflare', 'access_rules'] },
           (old) => {
@@ -77,6 +87,7 @@ export const ConfirmDeleteDialog: React.FC<ConfirmDeleteDialogProps> = ({
           }
         )
 
+        useHighlightStore.getState().clearRemovingRules(deletedKeys)
         onSuccess?.(deleteResult.successful)
       }
 

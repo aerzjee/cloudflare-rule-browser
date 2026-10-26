@@ -600,6 +600,12 @@ export interface ReconcileDeltaResult {
   reconciledRules: NormalizedAccessRule[]
   newlyAddedKeys: string[]
   deletedKeys: string[]
+  /** Alias for reconciledRules */
+  nextRules: NormalizedAccessRule[]
+  /** Alias for newlyAddedKeys */
+  addedKeys: string[]
+  /** Alias for deletedKeys */
+  removedKeys: string[]
 }
 
 /**
@@ -693,6 +699,9 @@ export function reconcileFirstPageDelta(
     reconciledRules,
     newlyAddedKeys,
     deletedKeys,
+    nextRules: reconciledRules,
+    addedKeys: newlyAddedKeys,
+    removedKeys: deletedKeys,
   }
 }
 

@@ -199,6 +199,7 @@ export const RulesTable: React.FC<RulesTableProps> = ({
 
   const { t, language } = useTranslation()
   const newlySyncedRuleKeys = useHighlightStore((s) => s.newlySyncedRuleKeys)
+  const removingRuleKeys = useHighlightStore((s) => s.removingRuleKeys)
 
   // Local table state
   const [internalRowSelection, setInternalRowSelection] = useState<RowSelectionState>({})
@@ -584,11 +585,19 @@ export const RulesTable: React.FC<RulesTableProps> = ({
     easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
   })
 
-  // Performance optimization for large datasets
+  // Performance optimization for large datasets, while guaranteeing animations stay active during exit transitions
   const renderedRowsCount = table.getRowModel().rows.length
+  const hasActiveAnimations =
+    Object.keys(removingRuleKeys).length > 0 ||
+    Object.keys(newlySyncedRuleKeys).length > 0
+
   useEffect(() => {
-    enableAnimations(renderedRowsCount <= 250)
-  }, [renderedRowsCount, enableAnimations])
+    if (hasActiveAnimations) {
+      enableAnimations(true)
+    } else {
+      enableAnimations(renderedRowsCount <= 300)
+    }
+  }, [hasActiveAnimations, renderedRowsCount, enableAnimations])
 
   // Selected rules for bulk action
   const selectedRowModel = table.getSelectedRowModel()
@@ -800,6 +809,7 @@ export const RulesTable: React.FC<RulesTableProps> = ({
                 table.getRowModel().rows.map((row) => {
                   const isSelected = row.getIsSelected()
                   const isNew = Boolean(newlySyncedRuleKeys[row.id])
+                  const isRemoving = Boolean(removingRuleKeys[row.id])
                   return (
                     <tr
                       key={row.id}
@@ -809,7 +819,8 @@ export const RulesTable: React.FC<RulesTableProps> = ({
                         isSelected
                           ? 'bg-orange-500/[0.08] dark:bg-orange-500/[0.12] shadow-[inset_2px_0_0_0_#f6821f]'
                           : 'shadow-none',
-                        isNew && 'animate-rule-blink shadow-[inset_3px_0_0_0_#10b981]'
+                        isNew && 'animate-rule-blink shadow-[inset_3px_0_0_0_#10b981]',
+                        isRemoving && 'animate-rule-remove shadow-[inset_3px_0_0_0_#f43f5e]'
                       )}
                     >
                       {row.getVisibleCells().map((cell) => (

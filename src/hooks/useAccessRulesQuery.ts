@@ -53,14 +53,45 @@ export function useAccessRulesQuery(): UseAccessRulesQueryResult {
       const queryKey = ['cloudflare', 'access_rules', { email, accountLevelOnly }]
       const currentRules = queryClient.getQueryData<NormalizedAccessRule[]>(queryKey) || []
 
-      const { reconciledRules, newlyAddedKeys } = reconcileFirstPageDelta(currentRules, deltaResult)
+      const { reconciledRules, newlyAddedKeys, deletedKeys } = reconcileFirstPageDelta(
+        currentRules,
+        deltaResult
+      )
 
-      if (newlyAddedKeys.length > 0) {
-        useHighlightStore.getState().highlightNewRules(newlyAddedKeys)
+      if (deletedKeys.length > 0) {
+        // Phase 1 (Exit animation): Mark removed rules and retain them in DOM for 350ms
+        useHighlightStore.getState().markRulesAsRemoving(deletedKeys)
+
+        if (newlyAddedKeys.length > 0) {
+          useHighlightStore.getState().highlightNewRules(newlyAddedKeys)
+        }
+
+        // Keep removing rules in memory during animation while mounting brand new rules
+        const deltaMap = new Map(deltaResult.rules.map((r) => [getRuleUniqueKey(r), r]))
+        const newlyAddedRules = deltaResult.rules.filter((r) =>
+          newlyAddedKeys.includes(getRuleUniqueKey(r))
+        )
+        const transitionalRules = [
+          ...newlyAddedRules,
+          ...currentRules.map((r) => deltaMap.get(getRuleUniqueKey(r)) ?? r),
+        ]
+        queryClient.setQueryData<NormalizedAccessRule[]>(queryKey, transitionalRules)
+
+        // Allow 350ms for CSS exit animation to play
+        await new Promise((resolve) => setTimeout(resolve, 350))
+
+        // Phase 2 (DOM & Cache Purge): Update query data and persist to IndexedDB
+        queryClient.setQueryData<NormalizedAccessRule[]>(queryKey, reconciledRules)
+        await setCachedRules(accountLevelOnly, reconciledRules)
+        useHighlightStore.getState().clearRemovingRules(deletedKeys)
+      } else {
+        if (newlyAddedKeys.length > 0) {
+          useHighlightStore.getState().highlightNewRules(newlyAddedKeys)
+        }
+
+        queryClient.setQueryData<NormalizedAccessRule[]>(queryKey, reconciledRules)
+        await setCachedRules(accountLevelOnly, reconciledRules)
       }
-
-      queryClient.setQueryData<NormalizedAccessRule[]>(queryKey, reconciledRules)
-      await setCachedRules(accountLevelOnly, reconciledRules)
     } catch (err) {
       console.warn('[DeltaSync] Error during background reconciliation:', err)
     } finally {
