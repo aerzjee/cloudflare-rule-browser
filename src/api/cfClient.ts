@@ -1,4 +1,5 @@
 import { useAuthStore } from '../store/useAuthStore'
+import { useRateLimitStore } from '../store/useRateLimitStore'
 import type {
   CloudflareApiMessage,
   CloudflareApiResponse,
@@ -39,7 +40,7 @@ export async function cfFetch<T>(
 
   if (!token) {
     throw new CloudflareApiError(
-      'Brak danych uwierzytelniających Cloudflare. Zaloguj się ponownie.',
+      'Missing Cloudflare authentication credentials. Please log in again.',
       401
     )
   }
@@ -73,11 +74,14 @@ export async function cfFetch<T>(
   } catch (networkError) {
     throw new CloudflareApiError(
       networkError instanceof Error
-        ? `Błąd sieci: ${networkError.message}`
-        : 'Nie można połączyć się z serwerem proxy Cloudflare.',
+        ? `Network error: ${networkError.message}`
+        : 'Failed to connect to Cloudflare proxy server.',
       0
     )
   }
+
+  // Update rate limit store from response headers on EVERY response
+  useRateLimitStore.getState().updateFromHeaders(response.headers)
 
   let data: CloudflareApiResponse<T> | null = null
   const contentType = response.headers.get('content-type')
@@ -95,8 +99,8 @@ export async function cfFetch<T>(
   if (!response.ok) {
     const errorMessages =
       data?.errors && data.errors.length > 0
-        ? data.errors.map((e) => e.message || `Kod błędu: ${e.code}`).join('; ')
-        : `Błąd żądania (${response.status}: ${response.statusText})`
+        ? data.errors.map((e) => e.message || `Error code: ${e.code}`).join('; ')
+        : `Request failed (${response.status}: ${response.statusText})`
 
     throw new CloudflareApiError(
       errorMessages,
@@ -110,18 +114,36 @@ export async function cfFetch<T>(
   if (data && data.success === false) {
     const errorMessages =
       data.errors && data.errors.length > 0
-        ? data.errors.map((e) => e.message || `Błąd CF ${e.code}`).join('; ')
-        : 'Operacja Cloudflare zakończyła się niepowodzeniem.'
+        ? data.errors.map((e) => e.message || `CF error ${e.code}`).join('; ')
+        : 'Cloudflare operation failed.'
 
     throw new CloudflareApiError(errorMessages, response.status, data.errors, data)
   }
 
   if (!data) {
     throw new CloudflareApiError(
-      'Serwer zwrócił nieprawidłową lub pustą odpowiedź JSON.',
+      'Server returned an invalid or empty JSON response.',
       response.status
     )
   }
 
   return data
 }
+
+/**
+ * Lightweight ping to refresh Cloudflare API rate limit headers.
+ * Sends a minimal request to /api/cf/accounts?page=1&per_page=1.
+ */
+export async function pingRateLimit(): Promise<void> {
+  const { token } = useAuthStore.getState()
+  if (!token) return
+
+  try {
+    await cfFetch('accounts?page=1&per_page=1', {
+      method: 'GET',
+    })
+  } catch {
+    // Silently ignore ping errors as this is a background diagnostic check
+  }
+}
+

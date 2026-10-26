@@ -26,6 +26,12 @@ export interface SettingsActions {
   setAutoRefreshInterval: (interval: number) => void
   setAutoRefreshMode: (mode: AutoRefreshMode) => void
   setLanguage: (lang: AppLanguage) => void
+  updateSettings: (settings: {
+    concurrency: number
+    autoRefreshInterval: number
+    autoRefreshMode: AutoRefreshMode
+    language: AppLanguage
+  }) => void
   markRefreshed: () => void
   scheduleNextRefresh: () => void
   setIsAutoRefreshing: (val: boolean) => void
@@ -76,6 +82,25 @@ export const useSettingsStore = create<SettingsState & SettingsActions>()(
           document.documentElement.lang = validated
         }
         set({ language: validated })
+      },
+
+      updateSettings: (newSettings) => {
+        const allowedIntervals = [0, 30, 60, 300, 600]
+        const intervalNum = Math.max(0, Math.round(Number(newSettings.autoRefreshInterval) || 0))
+        const validatedInterval = allowedIntervals.includes(intervalNum) ? intervalNum : 0
+        const now = Date.now()
+        const validatedConcurrency = Math.min(6, Math.max(1, Math.round(Number(newSettings.concurrency) || 2)))
+        const validatedLang: AppLanguage = newSettings.language === 'pl' ? 'pl' : 'en'
+        if (typeof document !== 'undefined') {
+          document.documentElement.lang = validatedLang
+        }
+        set({
+          concurrency: validatedConcurrency,
+          autoRefreshInterval: validatedInterval,
+          autoRefreshMode: newSettings.autoRefreshMode === 'full' ? 'full' : 'first_page',
+          language: validatedLang,
+          nextRefreshAt: validatedInterval > 0 ? now + validatedInterval * 1000 : null,
+        })
       },
 
       markRefreshed: () => {

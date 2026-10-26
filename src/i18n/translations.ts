@@ -188,6 +188,17 @@ export interface TranslationDictionary {
     fullDesc: string
     restoreDefaults: string
     done: string
+    save: string
+    cancel: string
+    hasUnsaved: string
+  }
+  rateLimit: {
+    badge: string
+    apiQuota: string
+    requestsRemaining: (remaining: number, limit: number) => string
+    resetIn: (seconds: number) => string
+    tooltipTitle: string
+    window5m: string
   }
   changelog: {
     title: string
@@ -441,6 +452,17 @@ export const translations: Record<'en' | 'pl', TranslationDictionary> = {
         'Full Sync – re-fetches all pages for all zones and accounts.',
       restoreDefaults: 'Restore defaults',
       done: 'Done',
+      save: 'Save',
+      cancel: 'Cancel',
+      hasUnsaved: 'Unsaved changes',
+    },
+    rateLimit: {
+      badge: 'API',
+      apiQuota: 'API Quota',
+      requestsRemaining: (remaining, limit) => `${remaining} / ${limit} requests remaining`,
+      resetIn: (seconds) => `Reset in: ${seconds}s`,
+      tooltipTitle: 'Cloudflare API Rate Limit',
+      window5m: '5 min window',
     },
     changelog: {
       title: 'Changelog',
@@ -704,6 +726,17 @@ export const translations: Record<'en' | 'pl', TranslationDictionary> = {
         'Full Sync – pobiera ponownie wszystkie strony reguł dla wszystkich stref i kont.',
       restoreDefaults: 'Przywróć domyślne',
       done: 'Gotowe',
+      save: 'Zapisz',
+      cancel: 'Anuluj',
+      hasUnsaved: 'Niezapisane zmiany',
+    },
+    rateLimit: {
+      badge: 'API',
+      apiQuota: 'Limit API',
+      requestsRemaining: (remaining, limit) => `Pozostało ${remaining} z ${limit} zapytań`,
+      resetIn: (seconds) => `Reset za: ${seconds}s`,
+      tooltipTitle: 'Limit zapytań Cloudflare API',
+      window5m: 'okno 5 min',
     },
     changelog: {
       title: 'Historia zmian (Changelog)',

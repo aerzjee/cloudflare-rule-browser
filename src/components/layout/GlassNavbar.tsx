@@ -21,6 +21,7 @@ import { clearAllCachedRules } from '../../utils/rulesCache'
 import { GlassButton } from '../ui/GlassButton'
 import { GlassSwitch } from '../ui/GlassSwitch'
 import { AutoRefreshBadge } from './AutoRefreshBadge'
+import { RateLimitBadge } from './RateLimitBadge'
 import { cn } from '../../lib/utils'
 
 const SettingsModal = lazy(() => import('./SettingsModal'))
@@ -198,6 +199,9 @@ export const GlassNavbar: React.FC<GlassNavbarProps> = ({
               PL
             </button>
           </div>
+
+          {/* Rate Limit telemetry badge */}
+          <RateLimitBadge className="hidden md:inline-flex" />
 
           {/* Settings button with optional auto-refresh indicator badge */}
           <div className="flex items-center gap-1.5">

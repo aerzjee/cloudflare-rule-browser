@@ -10,14 +10,16 @@ import {
   Sparkles,
   Globe,
   Lock,
+  Sun,
+  Moon,
 } from 'lucide-react'
 import { GlassCard, GlassCardContent } from '../components/ui/GlassCard'
 import { GlassInput } from '../components/ui/GlassInput'
 import { GlassButton } from '../components/ui/GlassButton'
 import { GlassSwitch } from '../components/ui/GlassSwitch'
 import { AmbientBackground } from '../components/ui/AmbientBackground'
-import { GlassNavbar } from '../components/layout/GlassNavbar'
 import { useAuthStore, type AuthType } from '../store/useAuthStore'
+import { useThemeStore } from '../store/useThemeStore'
 import { useTranslation } from '../i18n/useTranslation'
 import { cn } from '../lib/utils'
 
@@ -38,7 +40,9 @@ function detectAuthType(token: string): AuthType {
 }
 
 export const LandingPage: React.FC = () => {
-  const { t } = useTranslation()
+  const { t, language, setLanguage } = useTranslation()
+  const { theme, toggleTheme } = useThemeStore()
+  const isDark = theme === 'dark'
   const login = useAuthStore((s) => s.login)
 
   const [email, setEmail] = useState('')
@@ -104,8 +108,57 @@ export const LandingPage: React.FC = () => {
     <div className="relative min-h-screen flex flex-col selection:bg-orange-500/25">
       <AmbientBackground />
 
-      {/* Top navigation bar with EN | PL language switcher and theme control */}
-      <GlassNavbar />
+      {/* Floating Header Controls: Language switcher and Theme toggle */}
+      <header className="absolute top-4 right-4 sm:top-6 sm:right-6 z-20 flex items-center gap-2 sm:gap-3">
+        {/* Language switch EN | PL */}
+        <div
+          role="group"
+          aria-label={t.navbar.language}
+          className="flex items-center p-0.5 rounded-xl bg-white/60 dark:bg-slate-900/60 backdrop-blur-md border border-white/40 dark:border-white/10 text-xs font-semibold shadow-xs"
+        >
+          <button
+            type="button"
+            onClick={() => setLanguage('en')}
+            className={cn(
+              'px-2.5 py-1 rounded-lg transition-all cursor-pointer font-mono text-[11px]',
+              language === 'en'
+                ? 'bg-gradient-to-br from-[#f6821f] to-[#ff9838] text-white shadow-xs font-bold'
+                : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
+            )}
+            aria-label="Switch to English"
+          >
+            EN
+          </button>
+          <button
+            type="button"
+            onClick={() => setLanguage('pl')}
+            className={cn(
+              'px-2.5 py-1 rounded-lg transition-all cursor-pointer font-mono text-[11px]',
+              language === 'pl'
+                ? 'bg-gradient-to-br from-[#f6821f] to-[#ff9838] text-white shadow-xs font-bold'
+                : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
+            )}
+            aria-label="Przełącz na język polski"
+          >
+            PL
+          </button>
+        </div>
+
+        {/* Theme toggle */}
+        <button
+          type="button"
+          onClick={toggleTheme}
+          title={isDark ? t.navbar.light : t.navbar.dark}
+          aria-label={t.navbar.toggleTheme}
+          className="flex items-center justify-center w-8 h-8 rounded-xl bg-white/60 dark:bg-slate-900/60 backdrop-blur-md border border-white/40 dark:border-white/10 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white shadow-xs cursor-pointer transition-all active:scale-95"
+        >
+          {isDark ? (
+            <Sun className="w-4 h-4 text-amber-500" />
+          ) : (
+            <Moon className="w-4 h-4 text-indigo-400" />
+          )}
+        </button>
+      </header>
 
       <div className="flex-1 flex items-center justify-center px-4 py-12 z-10">
         <div className="w-full max-w-md space-y-8">
@@ -262,6 +315,13 @@ export const LandingPage: React.FC = () => {
               {t.landing.footerZeroData}
             </span>
           </div>
+
+          {/* Subtle version & commit footer */}
+          <footer className="text-center text-xs text-slate-400 dark:text-slate-500 flex items-center justify-center gap-1.5 font-mono pt-2">
+            <span>v{__APP_VERSION__}</span>
+            <span>•</span>
+            <span>{__GIT_COMMIT__}</span>
+          </footer>
         </div>
       </div>
     </div>
