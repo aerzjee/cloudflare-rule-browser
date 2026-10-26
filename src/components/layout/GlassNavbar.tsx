@@ -1,27 +1,10 @@
 import React, { useState, lazy, Suspense } from 'react'
-import {
-  Cloud,
-  Moon,
-  Sun,
-  Shield,
-  Activity,
-  LogOut,
-  User,
-  Globe,
-  Building2,
-  GitBranch,
-  Settings,
-} from 'lucide-react'
-import { useQueryClient } from '@tanstack/react-query'
-import { useThemeStore } from '../../store/useThemeStore'
+import { Cloud, GitBranch } from 'lucide-react'
 import { useAuthStore, selectIsAuthenticated } from '../../store/useAuthStore'
-import { useSettingsStore } from '../../store/useSettingsStore'
 import { useTranslation } from '../../i18n/useTranslation'
-import { clearAllCachedRules } from '../../utils/rulesCache'
-import { GlassButton } from '../ui/GlassButton'
-import { GlassSwitch } from '../ui/GlassSwitch'
 import { AutoRefreshBadge } from './AutoRefreshBadge'
 import { RateLimitBadge } from './RateLimitBadge'
+import { UserProfileMenu } from './UserProfileMenu'
 import { cn } from '../../lib/utils'
 
 const SettingsModal = lazy(() => import('./SettingsModal'))
@@ -38,22 +21,13 @@ export const GlassNavbar: React.FC<GlassNavbarProps> = ({
   title,
   subtitle,
 }) => {
-  const { t, language, setLanguage } = useTranslation()
+  const { t } = useTranslation()
   const displayTitle = title || t.navbar.title
-  const { theme, toggleTheme } = useThemeStore()
-  const isDark = theme === 'dark'
-
-  const email = useAuthStore((s) => s.email)
-  const accountLevelOnly = useAuthStore((s) => s.accountLevelOnly)
   const isAuthenticated = useAuthStore(selectIsAuthenticated)
-  const logout = useAuthStore((s) => s.logout)
-  const queryClient = useQueryClient()
 
-  // Settings modal state and auto-refresh subscription
+  // Settings modal state
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [hasOpenedSettings, setHasOpenedSettings] = useState(false)
-  const autoRefreshInterval = useSettingsStore((s) => s.autoRefreshInterval)
-  const autoRefreshMode = useSettingsStore((s) => s.autoRefreshMode)
 
   // Changelog modal state
   const [isChangelogOpen, setIsChangelogOpen] = useState(false)
@@ -69,21 +43,6 @@ export const GlassNavbar: React.FC<GlassNavbarProps> = ({
     setIsChangelogOpen(true)
   }
 
-  const formatIntervalLabel = (sec: number): string => {
-    if (sec >= 60) return `${Math.round(sec / 60)}m`
-    return `${sec}s`
-  }
-
-  const handleLogout = async () => {
-    try {
-      await clearAllCachedRules()
-    } catch (err) {
-      console.warn('Error clearing cache on logout:', err)
-    }
-    logout()
-    queryClient.clear()
-  }
-
   return (
     <header
       className={cn(
@@ -95,7 +54,7 @@ export const GlassNavbar: React.FC<GlassNavbarProps> = ({
       )}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
-        {/* Brand / Logo */}
+        {/* Left Side: Brand / Logo & Changelog Trigger */}
         <div className="flex items-center gap-3 shrink-0">
           <div className="relative flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-[#f6821f] to-[#ff9838] text-white shadow-md shadow-orange-500/25">
             <Cloud className="w-5 h-5 fill-current" />
@@ -133,168 +92,20 @@ export const GlassNavbar: React.FC<GlassNavbarProps> = ({
           </div>
         </div>
 
-        {/* Center / Status Pill — show user email & auth mode when logged in */}
-        {isAuthenticated ? (
-          <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full backdrop-blur-md bg-white/50 dark:bg-slate-900/40 border border-white/60 dark:border-white/10 text-xs text-slate-600 dark:text-slate-400">
-            <User className="w-3.5 h-3.5 text-emerald-500" />
-            <span className="font-medium text-slate-800 dark:text-slate-200 max-w-[200px] truncate">
-              {email}
-            </span>
-            <span className="text-slate-300 dark:text-slate-600">•</span>
-            {accountLevelOnly ? (
-              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 text-[11px] font-semibold">
-                <Building2 className="w-3 h-3" />
-                {t.navbar.accountLevel}
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-blue-500/10 text-blue-600 dark:text-blue-400 text-[11px] font-semibold">
-                <Globe className="w-3 h-3" />
-                {t.navbar.allZones}
-              </span>
-            )}
-          </div>
-        ) : (
-          <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full backdrop-blur-md bg-white/50 dark:bg-slate-900/40 border border-white/60 dark:border-white/10 text-xs text-slate-600 dark:text-slate-400">
-            <Activity className="w-3.5 h-3.5 text-emerald-500" />
-            <span className="font-mono text-[11px]">{t.navbar.proxyStatus}</span>
-            <span className="text-slate-300 dark:text-slate-600">•</span>
-            <span className="inline-flex items-center gap-1 text-slate-500 dark:text-slate-400">
-              <Shield className="w-3 h-3 text-orange-500" /> {t.navbar.secureCsp}
-            </span>
-          </div>
-        )}
-
-        {/* Right Controls */}
-        <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
-          {/* Language Switcher EN | PL */}
-          <div
-            role="group"
-            aria-label={t.navbar.language}
-            className="flex items-center p-0.5 rounded-xl bg-slate-200/50 dark:bg-slate-800/50 backdrop-blur-md border border-white/40 dark:border-white/10 text-xs font-semibold"
-          >
-            <button
-              type="button"
-              onClick={() => setLanguage('en')}
-              className={cn(
-                'px-2 py-1 rounded-lg transition-all cursor-pointer font-mono text-[11px]',
-                language === 'en'
-                  ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-xs font-bold'
-                  : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
-              )}
-              aria-label="Switch to English"
-            >
-              EN
-            </button>
-            <button
-              type="button"
-              onClick={() => setLanguage('pl')}
-              className={cn(
-                'px-2 py-1 rounded-lg transition-all cursor-pointer font-mono text-[11px]',
-                language === 'pl'
-                  ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-xs font-bold'
-                  : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
-              )}
-              aria-label="Przełącz na język polski"
-            >
-              PL
-            </button>
-          </div>
-
+        {/* Right Side: Telemetry RateLimit, Auto-Refresh countdown badge & User Profile Dropdown */}
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
           {/* Rate Limit telemetry badge */}
           <RateLimitBadge className="hidden md:inline-flex" />
 
-          {/* Settings button with optional auto-refresh indicator badge */}
-          <div className="flex items-center gap-1.5">
-            <button
-              type="button"
-              onClick={handleOpenSettings}
-              title={
-                autoRefreshInterval > 0
-                  ? t.navbar.settingsTooltipWithRefresh(
-                      formatIntervalLabel(autoRefreshInterval),
-                      autoRefreshMode === 'first_page' ? 'Delta' : 'Full'
-                    )
-                  : t.navbar.settingsTooltip
-              }
-              aria-label={t.navbar.settingsTooltip}
-              className={cn(
-                'relative flex items-center justify-center w-9 h-9 rounded-xl transition-all duration-200 cursor-pointer',
-                'backdrop-blur-md bg-slate-200/50 dark:bg-slate-800/50 hover:bg-white/80 dark:hover:bg-slate-700/80',
-                'border border-white/40 dark:border-white/10 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white',
-                'shadow-sm active:scale-95'
-              )}
-            >
-              <Settings className="w-4 h-4 transition-transform hover:rotate-45" />
+          {/* Auto-Refresh countdown badge */}
+          <AutoRefreshBadge
+            onClick={handleOpenSettings}
+            className="hidden sm:inline-flex"
+          />
 
-              {/* Subtle pulsing badge for active auto-refresh */}
-              {autoRefreshInterval > 0 && (
-                <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
-                </span>
-              )}
-            </button>
-
-            {/* Isolated component displaying real-time countdown to next refresh */}
-            <AutoRefreshBadge
-              onClick={handleOpenSettings}
-              className="hidden lg:inline-flex"
-            />
-          </div>
-
-          {/* Theme Segmented Control (desktop) */}
-          <div className="hidden sm:flex items-center gap-1 bg-slate-200/50 dark:bg-slate-800/50 backdrop-blur-md p-1 rounded-xl border border-white/40 dark:border-white/10">
-            <button
-              type="button"
-              onClick={() => isDark && toggleTheme()}
-              className={cn(
-                'flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all duration-200 cursor-pointer',
-                !isDark
-                  ? 'bg-white text-slate-900 shadow-sm'
-                  : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
-              )}
-            >
-              <Sun className="w-3.5 h-3.5 text-amber-500" />
-              {t.navbar.light}
-            </button>
-            <button
-              type="button"
-              onClick={() => !isDark && toggleTheme()}
-              className={cn(
-                'flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all duration-200 cursor-pointer',
-                isDark
-                  ? 'bg-slate-700/80 text-white shadow-sm'
-                  : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
-              )}
-            >
-              <Moon className="w-3.5 h-3.5 text-indigo-400" />
-              {t.navbar.dark}
-            </button>
-          </div>
-
-          {/* Quick GlassSwitch toggle for mobile */}
-          <div className="sm:hidden flex items-center">
-            <GlassSwitch
-              checked={isDark}
-              onChange={toggleTheme}
-              size="sm"
-              iconOn={<Moon className="w-3 h-3 text-indigo-400" />}
-              iconOff={<Sun className="w-3 h-3 text-amber-500" />}
-              aria-label={t.navbar.toggleTheme}
-            />
-          </div>
-
-          {/* Logout button — only when authenticated */}
+          {/* Unified Profile & Preferences dropdown menu */}
           {isAuthenticated && (
-            <GlassButton
-              variant="ghost"
-              size="sm"
-              onClick={handleLogout}
-              leftIcon={<LogOut className="w-4 h-4" />}
-              className="text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-500/10 dark:hover:bg-red-500/10"
-            >
-              <span className="hidden sm:inline">{t.navbar.logout}</span>
-            </GlassButton>
+            <UserProfileMenu onOpenSettings={handleOpenSettings} />
           )}
         </div>
       </div>

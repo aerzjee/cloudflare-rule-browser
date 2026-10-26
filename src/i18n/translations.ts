@@ -200,6 +200,19 @@ export interface TranslationDictionary {
     proxyTitle: string
     proxyDesc: string
   }
+  profile: {
+    signedInAs: string
+    accessScope: string
+    theme: string
+    light: string
+    dark: string
+    language: string
+    settings: string
+    logout: string
+    authTypeBearer: string
+    authTypeKey: string
+    menuAria: string
+  }
   rateLimit: {
     badge: string
     apiQuota: string
@@ -473,6 +486,19 @@ export const translations: Record<'en' | 'pl', TranslationDictionary> = {
       proxyTitle: 'CORS Proxy Endpoint',
       proxyDesc:
         'Reverse proxy URL (/api/cf for Hono/Docker or external HTTPS Cloudflare Worker URL)',
+    },
+    profile: {
+      signedInAs: 'Signed in as',
+      accessScope: 'Access Scope',
+      theme: 'Theme',
+      light: 'Light',
+      dark: 'Dark',
+      language: 'Language',
+      settings: 'Settings',
+      logout: 'Log out',
+      authTypeBearer: 'API Token',
+      authTypeKey: 'Global Key',
+      menuAria: 'User account and preferences menu',
     },
     rateLimit: {
       badge: 'API',
@@ -757,6 +783,19 @@ export const translations: Record<'en' | 'pl', TranslationDictionary> = {
       proxyTitle: 'Punkt końcowy Proxy CORS',
       proxyDesc:
         'Adres URL proxy CORS (/api/cf dla Hono/Docker lub zewnętrzny HTTPS Cloudflare Worker)',
+    },
+    profile: {
+      signedInAs: 'Zalogowano jako',
+      accessScope: 'Zakres dostępu',
+      theme: 'Motyw',
+      light: 'Jasny',
+      dark: 'Ciemny',
+      language: 'Język',
+      settings: 'Ustawienia',
+      logout: 'Wyloguj',
+      authTypeBearer: 'API Token',
+      authTypeKey: 'Globalny klucz',
+      menuAria: 'Menu konta użytkownika i preferencji',
     },
     rateLimit: {
       badge: 'API',
