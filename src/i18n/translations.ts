@@ -40,6 +40,12 @@ export interface TranslationDictionary {
     footerProxy: string
     footerCsp: string
     footerZeroData: string
+    advancedProxy: string
+    proxyUrlLabel: string
+    proxyUrlPlaceholder: string
+    proxyUrlHelper: string
+    proxyUrlGitHubNotice: string
+    resetProxy: string
   }
   navbar: {
     title: string
@@ -191,6 +197,8 @@ export interface TranslationDictionary {
     save: string
     cancel: string
     hasUnsaved: string
+    proxyTitle: string
+    proxyDesc: string
   }
   rateLimit: {
     badge: string
@@ -275,6 +283,13 @@ export const translations: Record<'en' | 'pl', TranslationDictionary> = {
       footerProxy: 'Secure Proxy: /api/cf',
       footerCsp: 'Strict CSP compliance',
       footerZeroData: 'Zero telemetry, direct API proxy',
+      advancedProxy: 'Advanced / Proxy Endpoint',
+      proxyUrlLabel: 'CORS Proxy Endpoint',
+      proxyUrlPlaceholder: 'https://cf-proxy.yourdomain.workers.dev/api/cf',
+      proxyUrlHelper: 'Relative path (/api/cf for Hono/Docker) or external HTTPS Cloudflare Worker / Hono URL',
+      proxyUrlGitHubNotice:
+        'GitHub Pages is a static host. Provide an external CORS proxy endpoint (e.g. Cloudflare Worker or Hono micro-server) to connect to Cloudflare API.',
+      resetProxy: 'Reset to default (/api/cf)',
     },
     navbar: {
       title: 'Cloudflare Rule Browser',
@@ -455,6 +470,9 @@ export const translations: Record<'en' | 'pl', TranslationDictionary> = {
       save: 'Save',
       cancel: 'Cancel',
       hasUnsaved: 'Unsaved changes',
+      proxyTitle: 'CORS Proxy Endpoint',
+      proxyDesc:
+        'Reverse proxy URL (/api/cf for Hono/Docker or external HTTPS Cloudflare Worker URL)',
     },
     rateLimit: {
       badge: 'API',
@@ -543,6 +561,13 @@ export const translations: Record<'en' | 'pl', TranslationDictionary> = {
       footerProxy: 'Bezpieczne Proxy: /api/cf',
       footerCsp: 'Restrykcyjne CSP',
       footerZeroData: 'Zero danych wysyłanych na serwer',
+      advancedProxy: 'Zaawansowane / Endpoint Proxy',
+      proxyUrlLabel: 'Punkt końcowy Proxy CORS',
+      proxyUrlPlaceholder: 'https://cf-proxy.twojadomena.workers.dev/api/cf',
+      proxyUrlHelper: 'Ścieżka relatywna (/api/cf dla Hono/Docker) lub zewnętrzny adres HTTPS Cloudflare Worker / Hono',
+      proxyUrlGitHubNotice:
+        'GitHub Pages serwuje pliki statyczne. Do połączenia z Cloudflare API wymagany jest zewnętrzny endpoint proxy CORS (np. darmowy Cloudflare Worker lub serwer Hono).',
+      resetProxy: 'Przywróć domyślne (/api/cf)',
     },
     navbar: {
       title: 'Cloudflare Rule Browser',
@@ -729,6 +754,9 @@ export const translations: Record<'en' | 'pl', TranslationDictionary> = {
       save: 'Zapisz',
       cancel: 'Anuluj',
       hasUnsaved: 'Niezapisane zmiany',
+      proxyTitle: 'Punkt końcowy Proxy CORS',
+      proxyDesc:
+        'Adres URL proxy CORS (/api/cf dla Hono/Docker lub zewnętrzny HTTPS Cloudflare Worker)',
     },
     rateLimit: {
       badge: 'API',

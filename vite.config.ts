@@ -66,6 +66,7 @@ if (!gitCommit) {
 
 // https://vite.dev/config/
 export default defineConfig({
+  base: './',
   plugins: [react(), tailwindcss()],
   define: {
     __APP_VERSION__: JSON.stringify(appVersion),

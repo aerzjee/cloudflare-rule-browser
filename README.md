@@ -13,7 +13,7 @@
 [![GHCR](https://img.shields.io/badge/Registry-GHCR-2088FF?style=flat-square&logo=github)](https://github.com/aerzjee/cloudflare-rule-browser/pkgs/container/cloudflare-rule-browser)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](LICENSE)
 
-[Key Features](#-key-features) • [Security Architecture](#-security-architecture) • [API Permissions](#-cloudflare-api-token-permissions) • [Getting Started](#-getting-started) • [Docker Deployment](#-docker--ghcr-deployment) • [CI/CD Pipeline](#-automated-cicd-pipeline)
+[Key Features](#-key-features) • [Security Architecture](#-security-architecture) • [API Permissions](#-cloudflare-api-token-permissions) • [Getting Started](#-getting-started) • [Docker Deployment](#-docker--ghcr-deployment) • [GitHub Pages & CORS Proxy](#-static-hosting-on-github-pages--cors-proxy) • [CI/CD Pipeline](#-automated-cicd-pipeline)
 
 </div>
 
@@ -259,6 +259,41 @@ docker run -d -p 3000:3000 --name cf-local cloudflare-rule-browser:local
 
 ---
 
+## 🌐 Static Hosting on GitHub Pages & CORS Proxy
+
+GitHub Pages serves pure static assets without running a backend Node.js runtime. Direct browser calls to `api.cloudflare.com` are blocked by browser CORS policies. To run Cloudflare Rule Browser on GitHub Pages, configure an external CORS proxy endpoint.
+
+### 1. Zero-Dependency Cloudflare Worker Proxy (`workers/cf-cors-proxy.ts`)
+The repository includes a ready-to-deploy, standalone Cloudflare Worker in `workers/cf-cors-proxy.ts`:
+- **Free Tier Compatible**: Runs within Cloudflare's 100,000 requests/day free allowance.
+- **Strict Header Filtering**: Forwards only necessary authentication headers (`Authorization`, `X-Auth-Email`, `X-Auth-Key`, `Content-Type`, `Accept`).
+- **CORS & Rate-Limit Propagation**: Returns required CORS preflight headers and exposes `ratelimit` / `ratelimit-policy` metrics to the frontend.
+
+#### Deploying the Worker:
+- **Via Wrangler CLI**:
+  ```bash
+  npx wrangler deploy workers/cf-cors-proxy.ts --name cf-cors-proxy --compatibility-date 2024-01-01
+  ```
+- **Via Cloudflare Dashboard**:
+  1. Open **Workers & Pages** -> **Create Application** -> **Create Worker**.
+  2. Paste the contents of `workers/cf-cors-proxy.ts` into the quick editor and deploy.
+  3. Note your assigned worker URL (e.g. `https://cf-cors-proxy.<subdomain>.workers.dev`).
+
+### 2. Automated GitHub Pages Deployment (`deploy-pages.yml`)
+When a version tag (`v*`) is pushed or manually triggered via **Actions** -> **Deploy to GitHub Pages** -> **Run workflow**:
+1. Full Git history is checked out to parse commits into `changelog.json`.
+2. Vite builds the static app with relative asset paths (`base: './'`).
+3. An optional repository variable `VITE_API_PROXY_URL` (configured in **Settings** -> **Secrets and variables** -> **Actions** -> **Variables**) can be set to bake your default proxy endpoint (e.g. `https://cf-cors-proxy.<subdomain>.workers.dev/api/cf`) directly into the build.
+4. The `./dist` directory is uploaded and deployed to GitHub Pages (`https://<username>.github.io/<repo>/`).
+
+### 3. Configuring the Proxy Endpoint in the UI
+If `VITE_API_PROXY_URL` was not baked during build time, you can set it directly on the login screen:
+- When hosted on `*.github.io`, the login view highlights the **Advanced / Proxy Endpoint** expandable panel.
+- Enter your worker URL (e.g. `https://cf-cors-proxy.<subdomain>.workers.dev/api/cf`) or an external Hono instance.
+- The setting is saved in your local session and can be updated or reset at any time.
+
+---
+
 ## 🚀 Automated CI/CD Pipeline
 
 The project includes a GitHub Actions workflow (`.github/workflows/release-ghcr.yml`) for automated testing, tagging, and Docker publishing:
@@ -284,12 +319,14 @@ When a semver tag (e.g. `v1.2.0`) is pushed to GitHub:
 
 ```
 cloudflare-rule-browser/
-├── .github/workflows/         # GitHub Actions workflows (release-ghcr.yml)
+├── .github/workflows/         # GitHub Actions (release-ghcr.yml, deploy-pages.yml)
 ├── public/                    # Static public assets and favicons
 ├── scripts/
 │   └── generate-changelog.mjs # Git commit parser & changelog generator
 ├── server/
 │   └── index.ts               # Hono reverse proxy & static asset server
+├── workers/
+│   └── cf-cors-proxy.ts       # Cloudflare Worker zero-dependency CORS proxy
 ├── src/
 │   ├── api/                   # Cloudflare API integration (accessRules.ts)
 │   ├── components/

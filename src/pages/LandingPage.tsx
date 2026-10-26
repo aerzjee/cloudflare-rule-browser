@@ -12,6 +12,9 @@ import {
   Lock,
   Sun,
   Moon,
+  ChevronDown,
+  AlertTriangle,
+  Server,
 } from 'lucide-react'
 import { GlassCard, GlassCardContent } from '../components/ui/GlassCard'
 import { GlassInput } from '../components/ui/GlassInput'
@@ -44,10 +47,19 @@ export const LandingPage: React.FC = () => {
   const { theme, toggleTheme } = useThemeStore()
   const isDark = theme === 'dark'
   const login = useAuthStore((s) => s.login)
+  const storedProxyUrl = useAuthStore((s) => s.proxyUrl)
+  const setProxyUrl = useAuthStore((s) => s.setProxyUrl)
+
+  const isGitHubPages =
+    typeof window !== 'undefined' && window.location.hostname.endsWith('github.io')
 
   const [email, setEmail] = useState('')
   const [token, setToken] = useState('')
   const [accountLevelOnly, setAccountLevelOnly] = useState(false)
+  const [proxyUrlInput, setProxyUrlInput] = useState(storedProxyUrl || '/api/cf')
+  const [isAdvancedOpen, setIsAdvancedOpen] = useState(
+    () => isGitHubPages && (!storedProxyUrl || storedProxyUrl === '/api/cf')
+  )
   const [showToken, setShowToken] = useState(false)
   const [errors, setErrors] = useState<LoginFormErrors>({})
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -92,16 +104,19 @@ export const LandingPage: React.FC = () => {
       // Brief delay for smooth entrance transition animation
       setTimeout(() => {
         const authType = detectAuthType(trimmedToken)
+        const cleanProxy = proxyUrlInput.trim() || '/api/cf'
+        setProxyUrl(cleanProxy)
         login({
           email: trimmedEmail,
           token: trimmedToken,
           authType,
           accountLevelOnly,
+          proxyUrl: cleanProxy,
         })
         setIsSubmitting(false)
       }, 500)
     },
-    [email, token, accountLevelOnly, login, t]
+    [email, token, accountLevelOnly, proxyUrlInput, setProxyUrl, login, t]
   )
 
   return (
@@ -253,6 +268,60 @@ export const LandingPage: React.FC = () => {
                   />
                 </div>
 
+                {/* Advanced: CORS Proxy Endpoint */}
+                <div className="pt-2 border-t border-slate-200/60 dark:border-white/10">
+                  <button
+                    type="button"
+                    onClick={() => setIsAdvancedOpen((v) => !v)}
+                    className="flex items-center justify-between w-full text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer py-1"
+                    aria-expanded={isAdvancedOpen}
+                  >
+                    <span className="flex items-center gap-2">
+                      <Server className="w-3.5 h-3.5 text-[#f6821f]" />
+                      {t.landing.advancedProxy}
+                    </span>
+                    <ChevronDown
+                      className={cn(
+                        'w-4 h-4 transition-transform duration-200',
+                        isAdvancedOpen && 'rotate-180'
+                      )}
+                    />
+                  </button>
+
+                  {isAdvancedOpen && (
+                    <div className="mt-3 space-y-3 pt-1">
+                      {isGitHubPages && (!proxyUrlInput || proxyUrlInput === '/api/cf') && (
+                        <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-300 text-xs flex items-start gap-2.5">
+                          <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-amber-500" />
+                          <p className="leading-relaxed">{t.landing.proxyUrlGitHubNotice}</p>
+                        </div>
+                      )}
+
+                      <GlassInput
+                        label={t.landing.proxyUrlLabel}
+                        type="text"
+                        placeholder={t.landing.proxyUrlPlaceholder}
+                        value={proxyUrlInput}
+                        onChange={(e) => setProxyUrlInput(e.target.value)}
+                        leftIcon={<Globe className="w-4 h-4" />}
+                        helperText={t.landing.proxyUrlHelper}
+                      />
+
+                      {proxyUrlInput !== '/api/cf' && (
+                        <div className="flex justify-end">
+                          <button
+                            type="button"
+                            onClick={() => setProxyUrlInput('/api/cf')}
+                            className="text-xs text-slate-500 hover:text-orange-500 transition-colors cursor-pointer"
+                          >
+                            {t.landing.resetProxy}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
                 {/* Submit */}
                 <GlassButton
                   type="submit"
@@ -288,9 +357,12 @@ export const LandingPage: React.FC = () => {
                 'border border-white/60 dark:border-white/10',
                 'text-slate-500 dark:text-slate-400'
               )}
+              title={storedProxyUrl || '/api/cf'}
             >
               <ShieldCheck className="w-3 h-3 text-orange-500" />
-              {t.landing.footerProxy}
+              {storedProxyUrl && storedProxyUrl !== '/api/cf'
+                ? `Proxy: ${storedProxyUrl.length > 28 ? `${storedProxyUrl.slice(0, 28)}...` : storedProxyUrl}`
+                : t.landing.footerProxy}
             </span>
             <span
               className={cn(

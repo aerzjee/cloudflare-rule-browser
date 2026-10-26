@@ -25,11 +25,18 @@ export class CloudflareApiError extends Error {
 }
 
 function normalizeEndpoint(endpoint: string): string {
-  if (endpoint.startsWith('/api/cf')) {
-    return endpoint
+  const rawProxy = (useAuthStore.getState().proxyUrl || '/api/cf').trim()
+  const baseProxy = rawProxy.replace(/\/+$/, '') || '/api/cf'
+
+  let path = endpoint.trim()
+  if (path.startsWith('/api/cf')) {
+    path = path.slice('/api/cf'.length)
   }
-  const clean = endpoint.startsWith('/') ? endpoint : `/${endpoint}`
-  return `/api/cf${clean}`
+  if (!path.startsWith('/')) {
+    path = `/${path}`
+  }
+
+  return `${baseProxy}${path}`
 }
 
 export async function cfFetch<T>(

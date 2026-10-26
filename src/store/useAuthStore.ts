@@ -14,6 +14,8 @@ export interface AuthState {
   authType: AuthType
   /** When true, fetch only account-level resources (skip per-zone listing) */
   accountLevelOnly: boolean
+  /** Custom CORS proxy URL (defaults to VITE_API_PROXY_URL or '/api/cf') */
+  proxyUrl: string
 }
 
 interface AuthActions {
@@ -23,41 +25,56 @@ interface AuthActions {
     token: string
     authType: AuthType
     accountLevelOnly: boolean
+    proxyUrl?: string
   }) => void
   /** Clear all credentials and remove persisted data */
   logout: () => void
   /** Update a single field */
   setAccountLevelOnly: (value: boolean) => void
+  /** Set custom CORS proxy URL */
+  setProxyUrl: (url: string) => void
 }
+
+const DEFAULT_PROXY_URL =
+  (import.meta.env.VITE_API_PROXY_URL as string | undefined)?.trim() || '/api/cf'
 
 const INITIAL_STATE: AuthState = {
   email: '',
   token: '',
   authType: 'bearer',
   accountLevelOnly: false,
+  proxyUrl: DEFAULT_PROXY_URL,
 }
 
 export const AUTH_STORAGE_NAME = 'session'
 
 export const useAuthStore = create<AuthState & AuthActions>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       ...INITIAL_STATE,
 
-      login: ({ email, token, authType, accountLevelOnly }) =>
-        set({ email, token, authType, accountLevelOnly }),
+      login: ({ email, token, authType, accountLevelOnly, proxyUrl }) =>
+        set((state) => ({
+          email,
+          token,
+          authType,
+          accountLevelOnly,
+          proxyUrl: proxyUrl !== undefined ? proxyUrl : state.proxyUrl,
+        })),
 
       logout: () => {
-        set({ ...INITIAL_STATE })
+        const currentProxy = get().proxyUrl || DEFAULT_PROXY_URL
+        set({ ...INITIAL_STATE, proxyUrl: currentProxy })
         // Also explicitly remove the persisted key so nothing lingers
         cryptoStorage.removeItem(AUTH_STORAGE_NAME)
         // Clear all cached rules from IndexedDB
         clearAllCachedRules().catch((err) =>
-          console.warn('[useAuthStore] Błąd czyszczenia cache IndexedDB:', err)
+          console.warn('[useAuthStore] Error clearing IndexedDB cache:', err)
         )
       },
 
       setAccountLevelOnly: (value: boolean) => set({ accountLevelOnly: value }),
+      setProxyUrl: (url: string) => set({ proxyUrl: url }),
     }),
     {
       name: AUTH_STORAGE_NAME,
@@ -68,6 +85,7 @@ export const useAuthStore = create<AuthState & AuthActions>()(
         token: state.token,
         authType: state.authType,
         accountLevelOnly: state.accountLevelOnly,
+        proxyUrl: state.proxyUrl,
       }),
     }
   )

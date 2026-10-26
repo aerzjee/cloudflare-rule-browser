@@ -1,8 +1,23 @@
 {
-  "latestVersion": "1.1.2",
-  "latestCommit": "1e06174",
-  "generatedAt": "2026-10-26T12:20:53.211Z",
+  "latestVersion": "1.1.3",
+  "latestCommit": "1b1f30f",
+  "generatedAt": "2026-10-26T12:32:52.900Z",
   "releases": [
+    {
+      "version": "1.1.3",
+      "tag": "v1.1.3",
+      "commit": "1b1f30f",
+      "date": "2026-10-26",
+      "changes": [
+        {
+          "hash": "1b1f30f",
+          "date": "2026-10-26",
+          "type": "fix",
+          "scope": "ui",
+          "message": "add two-phase exit animation for rules removed during delta sync and manual deletion"
+        }
+      ]
+    },
     {
       "version": "1.1.2",
       "tag": "v1.1.2",

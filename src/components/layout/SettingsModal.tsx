@@ -13,6 +13,7 @@ import {
   Check,
   Languages,
   Sparkles,
+  Server,
 } from 'lucide-react'
 import {
   useSettingsStore,
@@ -20,10 +21,12 @@ import {
   type AutoRefreshMode,
   type AppLanguage,
 } from '../../store/useSettingsStore'
+import { useAuthStore } from '../../store/useAuthStore'
 import { useTranslation } from '../../i18n/useTranslation'
 import { translations } from '../../i18n/translations'
 import { GlassButton } from '../ui/GlassButton'
 import { GlassCard } from '../ui/GlassCard'
+import { GlassInput } from '../ui/GlassInput'
 import { cn } from '../../lib/utils'
 
 export interface SettingsModalProps {
@@ -47,18 +50,23 @@ function SettingsModalDialog({ onClose }: { onClose: () => void }) {
   const liveLanguage = useSettingsStore((s) => s.language)
   const updateSettings = useSettingsStore((s) => s.updateSettings)
 
+  const liveProxyUrl = useAuthStore((s) => s.proxyUrl)
+  const setProxyUrl = useAuthStore((s) => s.setProxyUrl)
+
   // Local draft states initialized once on mount
   const [draftConcurrency, setDraftConcurrency] = useState<number>(liveConcurrency)
   const [draftAutoRefreshInterval, setDraftAutoRefreshInterval] = useState<number>(liveAutoRefreshInterval)
   const [draftAutoRefreshMode, setDraftAutoRefreshMode] = useState<AutoRefreshMode>(liveAutoRefreshMode)
   const [draftLanguage, setDraftLanguage] = useState<AppLanguage>(liveLanguage)
+  const [draftProxyUrl, setDraftProxyUrl] = useState<string>(liveProxyUrl || '/api/cf')
 
   // Track if any changes have been made
   const isDirty =
     draftConcurrency !== liveConcurrency ||
     draftAutoRefreshInterval !== liveAutoRefreshInterval ||
     draftAutoRefreshMode !== liveAutoRefreshMode ||
-    draftLanguage !== liveLanguage
+    draftLanguage !== liveLanguage ||
+    draftProxyUrl.trim() !== (liveProxyUrl || '/api/cf').trim()
 
   // Responsive translation preview matching the selected draft language
   const currentT = translations[draftLanguage] ?? t
@@ -74,6 +82,10 @@ function SettingsModalDialog({ onClose }: { onClose: () => void }) {
       autoRefreshMode: draftAutoRefreshMode,
       language: draftLanguage,
     })
+    const cleanProxy = draftProxyUrl.trim() || '/api/cf'
+    if (cleanProxy !== liveProxyUrl) {
+      setProxyUrl(cleanProxy)
+    }
     onClose()
   }
 
@@ -82,6 +94,7 @@ function SettingsModalDialog({ onClose }: { onClose: () => void }) {
     setDraftAutoRefreshInterval(DEFAULT_SETTINGS.autoRefreshInterval)
     setDraftAutoRefreshMode(DEFAULT_SETTINGS.autoRefreshMode)
     setDraftLanguage(DEFAULT_SETTINGS.language)
+    setDraftProxyUrl('/api/cf')
   }
 
   // Handle Escape key to cancel
@@ -381,6 +394,20 @@ function SettingsModalDialog({ onClose }: { onClose: () => void }) {
                     </p>
                   </button>
                 </div>
+              </div>
+
+              {/* CORS Proxy Endpoint */}
+              <div className="space-y-2 pt-1 border-t border-slate-200/60 dark:border-white/10">
+                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                  <Server className="w-3.5 h-3.5 text-[#f6821f]" />
+                  {currentT.settings.proxyTitle}:
+                </label>
+                <GlassInput
+                  value={draftProxyUrl}
+                  onChange={(e) => setDraftProxyUrl(e.target.value)}
+                  placeholder="https://cf-proxy.yourdomain.workers.dev/api/cf or /api/cf"
+                  helperText={currentT.settings.proxyDesc}
+                />
               </div>
             </div>
 
