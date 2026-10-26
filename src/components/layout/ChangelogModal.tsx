@@ -105,7 +105,7 @@ export const ChangelogModal: React.FC<ChangelogModalProps> = ({
   const [selectedTypeFilter, setSelectedTypeFilter] = useState<string>('all')
   const [copiedHash, setCopiedHash] = useState<string | null>(null)
 
-  // Zamknięcie na klawisz Escape
+  // Close on Escape key
   useEffect(() => {
     if (!isOpen) return
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -135,7 +135,7 @@ export const ChangelogModal: React.FC<ChangelogModalProps> = ({
           aria-labelledby="changelog-modal-title"
           className="fixed inset-0 z-[100] flex items-center justify-center p-4 overflow-y-auto"
         >
-          {/* Tło (backdrop) */}
+          {/* Backdrop overlay */}
           <motion.div
             onClick={onClose}
             initial={{ opacity: 0 }}
@@ -145,7 +145,7 @@ export const ChangelogModal: React.FC<ChangelogModalProps> = ({
             className="fixed inset-0 bg-slate-950/60 backdrop-blur-md"
           />
 
-          {/* Okno modala */}
+          {/* Modal dialog window */}
           <motion.div
             initial={{ opacity: 0, scale: 0.94, y: 12 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -154,11 +154,11 @@ export const ChangelogModal: React.FC<ChangelogModalProps> = ({
             className="relative w-full max-w-2xl z-10 my-8"
           >
             <GlassCard className="p-0 overflow-hidden shadow-2xl border-white/60 dark:border-white/15">
-              {/* Górny pasek gradientowy w barwach Cloudflare & Neon */}
+              {/* Top gradient accent bar in Cloudflare & Neon colors */}
               <div className="h-1.5 bg-gradient-to-r from-[#f6821f] via-rose-500 to-indigo-500" />
 
               <div className="p-6 space-y-6">
-                {/* Nagłówek modala */}
+                {/* Modal header */}
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex items-center gap-3">
                     <div className="p-2.5 rounded-2xl bg-orange-500/10 text-[#f6821f] border border-orange-500/20 shadow-sm">
@@ -193,7 +193,7 @@ export const ChangelogModal: React.FC<ChangelogModalProps> = ({
                   </button>
                 </div>
 
-                {/* Filtry typów zmian */}
+                {/* Change type filters */}
                 <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
                   <button
                     type="button"
@@ -234,7 +234,7 @@ export const ChangelogModal: React.FC<ChangelogModalProps> = ({
                   })}
                 </div>
 
-                {/* Główna lista wydań ze scrollem */}
+                {/* Scrollable releases list */}
                 <div className="max-h-[62vh] overflow-y-auto space-y-6 pr-1 divide-y divide-slate-200/60 dark:divide-white/10">
                   {allReleases.map((release: ChangelogRelease, releaseIdx: number) => {
                     const filteredChanges =
@@ -255,7 +255,7 @@ export const ChangelogModal: React.FC<ChangelogModalProps> = ({
                         key={release.tag || release.version || releaseIdx}
                         className={cn('space-y-3.5', releaseIdx > 0 && 'pt-5')}
                       >
-                        {/* Nagłówek wydania */}
+                        {/* Release header */}
                         <div className="flex flex-wrap items-center justify-between gap-2">
                           <div className="flex items-center gap-2">
                             <span
@@ -290,7 +290,7 @@ export const ChangelogModal: React.FC<ChangelogModalProps> = ({
                           </div>
                         </div>
 
-                        {/* Lista pojedynczych zmian w wydaniu */}
+                        {/* List of individual commits in release */}
                         <div className="space-y-2">
                           {filteredChanges.map((change, changeIdx) => {
                             const badge = getTypeBadge(change.type)
@@ -302,7 +302,7 @@ export const ChangelogModal: React.FC<ChangelogModalProps> = ({
                                 className="group flex items-start justify-between gap-3 p-2.5 rounded-xl transition-all duration-150 backdrop-blur-xs bg-slate-100/60 dark:bg-slate-900/40 hover:bg-white/80 dark:hover:bg-slate-800/60 border border-slate-200/50 dark:border-white/5"
                               >
                                 <div className="flex items-start gap-2.5 min-w-0">
-                                  {/* Plakietka typu commita */}
+                                  {/* Commit type badge */}
                                   <span
                                     className={cn(
                                       'shrink-0 inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-mono font-bold border tracking-wider',
@@ -312,7 +312,7 @@ export const ChangelogModal: React.FC<ChangelogModalProps> = ({
                                     {badge.label}
                                   </span>
 
-                                  {/* Treść opisu commita */}
+                                  {/* Commit message description */}
                                   <div className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed break-words">
                                     {change.scope && (
                                       <span className="font-semibold text-slate-900 dark:text-white mr-1.5">
@@ -323,7 +323,7 @@ export const ChangelogModal: React.FC<ChangelogModalProps> = ({
                                   </div>
                                 </div>
 
-                                {/* Przycisk kopiowania hasha commita */}
+                                {/* Copy commit hash button */}
                                 <button
                                   type="button"
                                   onClick={(e) => copyHash(change.hash, e)}
@@ -353,7 +353,7 @@ export const ChangelogModal: React.FC<ChangelogModalProps> = ({
                   })}
                 </div>
 
-                {/* Stopka modala */}
+                {/* Modal footer */}
                 <div className="flex items-center justify-between pt-4 border-t border-slate-200/70 dark:border-white/10 text-xs text-slate-500 dark:text-slate-400">
                   <div className="flex items-center gap-1.5">
                     <GitBranch className="w-3.5 h-3.5 text-[#f6821f]" />

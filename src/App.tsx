@@ -22,10 +22,10 @@ import { useAccessRulesQuery } from './hooks/useAccessRulesQuery'
 import { useTranslation } from './i18n/useTranslation'
 import type { NormalizedAccessRule } from './types/cloudflare'
 
-// Leniwe ładowanie tabeli reguł (Code-Splitting dla zalogowanego użytkownika)
+// Lazy-loaded RulesTable (Code-Splitting for authenticated dashboard)
 const RulesTable = lazy(() => import('./components/rules/RulesTable'))
 
-/** Szklany loader szkieletowy podczas asynchronicznego ładowania RulesTable */
+/** Glass skeleton loader shown while asynchronously loading RulesTable */
 function GlassLoadingSkeleton() {
   return (
     <GlassCard className="p-6 space-y-4 animate-pulse border-white/50 dark:border-white/10 shadow-2xl">
@@ -300,14 +300,14 @@ function Dashboard() {
         </section>
       </main>
 
-      {/* 3. Pływający pasek BulkActionBar pojawiający się, gdy zaznaczono >= 1 regułę */}
+      {/* 3. Floating BulkActionBar visible when >= 1 rule is selected */}
       <BulkActionBar
         selectedCount={selectedRules.length}
         onClearSelection={handleClearSelection}
         onDeleteSelected={() => handleDeleteBulk()}
       />
 
-      {/* 4. Modal potwierdzenia usunięcia z paskiem postępu */}
+      {/* 4. Deletion confirmation dialog with progress bar */}
       <ConfirmDeleteDialog
         isOpen={isConfirmDialogOpen}
         onClose={() => setIsConfirmDialogOpen(false)}

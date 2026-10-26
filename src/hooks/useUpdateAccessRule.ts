@@ -17,7 +17,7 @@ export function useUpdateAccessRule() {
   ): Promise<NormalizedAccessRule> => {
     const updatedRule = await updateAccessRule(rule, payload)
 
-    // Natychmiastowa lokalna aktualizacja w pamięci cache TanStack Query
+    // Immediate local update in TanStack Query in-memory cache
     queryClient.setQueriesData<NormalizedAccessRule[]>(
       { queryKey: ['cloudflare', 'access_rules'] },
       (old = []) => {
@@ -29,9 +29,9 @@ export function useUpdateAccessRule() {
         const targetKey = getRuleKey(rule)
         const updated = old.map((r) => (getRuleKey(r) === targetKey ? updatedRule : r))
 
-        // Aktualizacja IndexedDB w tle bez przeładowywania sieciowego
+        // Background IndexedDB persistence without network reload
         setCachedRules(accountLevelOnly, updated).catch((err) =>
-          console.warn('[useUpdateAccessRule] Błąd zapisu do IndexedDB:', err)
+          console.warn('[useUpdateAccessRule] Error saving to IndexedDB:', err)
         )
 
         return updated

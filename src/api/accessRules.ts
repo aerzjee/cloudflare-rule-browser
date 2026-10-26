@@ -12,12 +12,12 @@ import type {
 } from '../types/cloudflare'
 
 /**
- * Wielowątkowe pobieranie wszystkich stron z Cloudflare API z p-limit(concurrency).
- * - Krok A: Pobiera najpierw stronę nr 1 (page=1&per_page=100&order=created_on&direction=desc).
- * - Krok B: Odczytuje result_info.total_pages. Jeśli total_pages <= 1, zwraca od razu stronę 1.
- * - Krok C: Jeśli total_pages > 1, tworzy tablicę pozostałych stron [2, 3, ..., total_pages].
- * - Krok D: Używa pLimit(concurrency) do równoległego pobrania pozostałych stron (Promise.all),
- *   zwiększając atomowo licznik loadedPages i wywołując onPageProgress.
+ * Multi-threaded fetching of all pages from Cloudflare API with p-limit(concurrency).
+ * - Step A: Fetches page 1 first (page=1&per_page=100&order=created_on&direction=desc).
+ * - Step B: Reads result_info.total_pages. If total_pages <= 1, returns page 1 immediately.
+ * - Step C: If total_pages > 1, creates an array of remaining pages [2, 3, ..., total_pages].
+ * - Step D: Uses pLimit(concurrency) to fetch remaining pages in parallel (Promise.all),
+ *   atomically incrementing loadedPages and invoking onPageProgress.
  */
 export async function fetchAllPages<T>(
   endpoint: string,
@@ -50,7 +50,7 @@ export async function fetchAllPages<T>(
   }
   urlObj.searchParams.set('page', '1')
 
-  // Dodaj sortowanie chronologiczne od najnowszych dla reguł dostępu, jeśli nie określono
+  // Add chronological sorting (newest first) for access rules unless already specified
   if (endpoint.includes('access_rules') || endpoint.includes('rules')) {
     if (!urlObj.searchParams.has('order')) {
       urlObj.searchParams.set('order', 'created_on')
@@ -60,7 +60,7 @@ export async function fetchAllPages<T>(
     }
   }
 
-  // Krok A: Pobierz najpierw stronę nr 1
+  // Step A: Fetch page 1 first
   const firstPath = urlObj.pathname + urlObj.search
   const firstRes = await cfFetch<T[]>(firstPath)
 
@@ -77,18 +77,18 @@ export async function fetchAllPages<T>(
   let loadedPages = 1
   onPageProgress?.(loadedPages, totalPages)
 
-  // Krok B: Jeśli total_pages <= 1, zwróć od razu wyniki z 1. strony
+  // Step B: If total_pages <= 1, return results from page 1 immediately
   if (totalPages <= 1) {
     return items
   }
 
-  // Krok C: Jeśli total_pages > 1, utwórz tablicę numerów pozostałych stron [2, 3, ..., total_pages]
+  // Step C: If total_pages > 1, create array of remaining page numbers [2, 3, ..., total_pages]
   const remainingPages: number[] = []
   for (let p = 2; p <= totalPages; p++) {
     remainingPages.push(p)
   }
 
-  // Krok D: Użyj pLimit(concurrency) i pobierz pozostałe strony równolegle (Promise.all)
+  // Step D: Use pLimit(concurrency) to fetch remaining pages in parallel (Promise.all)
   const limit = pLimit(effectiveConcurrency)
   const pageTasks = remainingPages.map((page) =>
     limit(async () => {
@@ -112,8 +112,8 @@ export async function fetchAllPages<T>(
 }
 
 /**
- * Helper sprawdzający, czy dany typ zakresu Cloudflare reprezentuje poziom konta.
- * W Cloudflare API v4 IP Access Rules zwracają 'user', 'organization' lub 'account'.
+ * Helper checking if a given Cloudflare scope type represents an account-level scope.
+ * In Cloudflare API v4 IP Access Rules, scope types return 'user', 'organization', or 'account'.
  */
 export const isAccountLevelScope = (type?: string): boolean =>
   type === 'user' || type === 'organization' || type === 'account'
@@ -192,7 +192,7 @@ export async function fetchAccessRules(
   const tApi = getTranslations().api
 
   if (accountLevelOnly) {
-    // 2a: Pobierz konta (GET /api/cf/accounts)
+    // 2a: Fetch accounts (GET /api/cf/accounts)
     onProgress?.({
       loaded: 0,
       total: 100,
@@ -251,7 +251,7 @@ export async function fetchAccessRules(
           )
         }
       } catch (err) {
-        console.warn(`Błąd podczas pobierania reguł konta ${account.name} (${account.id}):`, err)
+        console.warn(`Error fetching account rules for ${account.name} (${account.id}):`, err)
       }
     }
 
@@ -265,8 +265,8 @@ export async function fetchAccessRules(
     return Array.from(rulesMap.values())
   }
 
-  // 2b: Jeśli accountLevelOnly === false:
-  // Pobierz wszystkie domeny (GET /api/cf/zones?per_page=50)
+  // 2b: If accountLevelOnly === false:
+  // Fetch all zones (GET /api/cf/zones?per_page=50)
   onProgress?.({
     loaded: 0,
     total: 100,
@@ -280,7 +280,7 @@ export async function fetchAccessRules(
     effectiveConcurrency
   )
 
-  // Jeśli brak domen na koncie, sprawdźmy reguły konta
+  // If no zones found on account, fallback to checking account rules
   if (zones.length === 0) {
     onProgress?.({
       loaded: 50,
@@ -311,7 +311,7 @@ export async function fetchAccessRules(
           )
         }
       } catch (err) {
-        console.warn(`Błąd reguł konta ${account.name}:`, err)
+        console.warn(`Error fetching account rules for ${account.name}:`, err)
       }
     }
 
@@ -325,7 +325,7 @@ export async function fetchAccessRules(
     return Array.from(rulesMap.values())
   }
 
-  // Pobierz reguły równolegle dla każdej domeny z ograniczeniem p-limit(effectiveConcurrency)
+  // Fetch rules in parallel for each zone with p-limit(effectiveConcurrency)
   const limit = pLimit(effectiveConcurrency)
   const totalZones = zones.length
   let completedZones = 0
@@ -348,7 +348,7 @@ export async function fetchAccessRules(
 
         for (const rule of rules) {
           if (isAccountLevelScope(rule.scope?.type)) {
-            // Reguła z poziomu konta – unikalny klucz po koncie i ID
+            // Account-level rule – unique key by account and rule ID
             const accountId = zone.account?.id || rule.scope?.id
             const key = `account-${accountId}-${rule.id}`
             if (!rulesMap.has(key)) {
@@ -365,7 +365,7 @@ export async function fetchAccessRules(
               )
             }
           } else {
-            // Reguła specyficzna dla strefy
+            // Zone-specific rule
             const key = `zone-${zone.id}-${rule.id}`
             rulesMap.set(
               key,
@@ -379,7 +379,7 @@ export async function fetchAccessRules(
           }
         }
       } catch (err) {
-        console.warn(`Błąd podczas pobierania reguł dla strefy ${zone.name} (${zone.id}):`, err)
+        console.warn(`Error fetching rules for zone ${zone.name} (${zone.id}):`, err)
       } finally {
         completedZones++
         const percentage = Math.min(100, 15 + Math.round((completedZones / totalZones) * 85))
@@ -406,9 +406,9 @@ export async function fetchAccessRules(
 }
 
 /**
- * Usuwa pojedynczą regułę dostępu z Cloudflare.
- * - Dla 'account': DELETE /api/cf/accounts/{accountId}/firewall/access_rules/rules/{id}
- * - Dla 'zone': DELETE /api/cf/zones/{zoneId}/firewall/access_rules/rules/{id}
+ * Deletes a single access rule from Cloudflare.
+ * - For 'account': DELETE /api/cf/accounts/{accountId}/firewall/access_rules/rules/{id}
+ * - For 'zone': DELETE /api/cf/zones/{zoneId}/firewall/access_rules/rules/{id}
  */
 export async function deleteAccessRule(
   rule: NormalizedAccessRule
@@ -416,7 +416,7 @@ export async function deleteAccessRule(
   if (rule.scopeType === 'account' || isAccountLevelScope(rule.rawScopeType)) {
     if (!rule.accountId) {
       throw new Error(
-        `Brak wymaganego accountId dla reguły konta ${rule.id}`
+        `Missing required accountId for account-level rule ${rule.id}`
       )
     }
     const res = await cfFetch<{ id: string }>(
@@ -431,7 +431,7 @@ export async function deleteAccessRule(
   // scopeType === 'zone'
   if (!rule.zoneId) {
     throw new Error(
-      `Nie można usunąć reguły ${rule.id}: brak wymaganego zoneId dla reguły strefy.`
+      `Cannot delete rule ${rule.id}: missing required zoneId for zone rule.`
     )
   }
 
@@ -450,10 +450,10 @@ export interface UpdateAccessRulePayload {
 }
 
 /**
- * Aktualizuje regułę dostępu (mode lub notes) za pomocą metody PATCH.
- * Zgodnie z oficjalną dokumentacją Cloudflare API v4 dla IP Access Rules:
- * - Dla 'account': PATCH /api/cf/accounts/${rule.accountId}/firewall/access_rules/rules/${rule.id}
- * - Dla 'zone': PATCH /api/cf/zones/${rule.zoneId}/firewall/access_rules/rules/${rule.id}
+ * Updates an access rule (mode or notes) using the PATCH method.
+ * According to official Cloudflare API v4 IP Access Rules documentation:
+ * - For 'account': PATCH /api/cf/accounts/${rule.accountId}/firewall/access_rules/rules/${rule.id}
+ * - For 'zone': PATCH /api/cf/zones/${rule.zoneId}/firewall/access_rules/rules/${rule.id}
  */
 export async function updateAccessRule(
   rule: NormalizedAccessRule,
@@ -471,7 +471,7 @@ export async function updateAccessRule(
     throw new Error(getTranslations().deleteModal.errorZoneMissing)
   }
 
-  // Zawsze przekaż mode reguły (aktualne lub nowe), ponieważ Cloudflare API tego wymaga w PATCH
+  // Always pass the rule mode (existing or updated) as required by the Cloudflare PATCH endpoint
   const bodyData: { mode: string; notes?: string } = {
     mode: payload.mode ?? rule.mode,
   }
@@ -513,8 +513,8 @@ export interface BulkDeleteResult {
 }
 
 /**
- * Usuwa wiele reguł współbieżnie z p-limit i Promise.allSettled,
- * dzięki czemu pojedynczy błąd nie przerywa usuwania pozostałych reguł.
+ * Deletes multiple rules concurrently with p-limit and Promise.allSettled,
+ * ensuring individual failures do not interrupt the rest of the batch.
  */
 export async function bulkDeleteAccessRules(
   rules: NormalizedAccessRule[],
@@ -581,10 +581,10 @@ export async function bulkDeleteAccessRules(
 }
 
 /**
- * Szybkie odświeżanie tylko 1. strony (fetchFirstPageDelta) w accessRules.ts:
- * - Dla accountLevelOnly === true: pobiera TYLKO pierwszą stronę (page=1&per_page=100&order=created_on&direction=desc) dla konta.
- * - Dla accountLevelOnly === false: pobiera tylko pierwszą stronę (page=1&per_page=100&order=created_on&direction=desc) dla stref z pLimit(concurrency).
- * - Zwraca znormalizowaną tablicę NormalizedAccessRule[].
+ * Fast refresh of page 1 only (fetchFirstPageDelta):
+ * - For accountLevelOnly === true: fetches ONLY page 1 (page=1&per_page=100&order=created_on&direction=desc) for the account.
+ * - For accountLevelOnly === false: fetches only page 1 (page=1&per_page=100&order=created_on&direction=desc) for zones using pLimit(concurrency).
+ * - Returns a normalized array NormalizedAccessRule[].
  */
 export async function fetchFirstPageRules(
   accountLevelOnlyOrOptions: boolean | { accountLevelOnly?: boolean; concurrency?: number } = false,
@@ -622,12 +622,12 @@ export async function fetchFirstPageRules(
             key,
             normalizeAccessRule(rule, {
               accountId: account.id,
-              accountName: account.name || rule.scope?.name || rule.scope?.email || 'Konto Cloudflare',
+              accountName: account.name || rule.scope?.name || rule.scope?.email || 'Cloudflare Account',
             })
           )
         }
       } catch (err) {
-        console.warn(`[fetchFirstPageRules] Błąd reguł konta ${account.name}:`, err)
+        console.warn(`[fetchFirstPageRules] Error fetching account rules for ${account.name}:`, err)
       }
     }
     return Array.from(rulesMap.values())
@@ -637,7 +637,7 @@ export async function fetchFirstPageRules(
   const zonesRes = await cfFetch<CloudflareZone[]>('/zones?page=1&per_page=50')
   const zones = zonesRes.result || []
 
-  // Jeśli brak domen, sprawdźmy reguły konta
+  // If no zones found, fallback to checking account rules
   if (zones.length === 0) {
     const accountsRes = await cfFetch<CloudflareAccount[]>('/accounts?page=1&per_page=50')
     const accounts = accountsRes.result || []
@@ -653,12 +653,12 @@ export async function fetchFirstPageRules(
             key,
             normalizeAccessRule(rule, {
               accountId: account.id,
-              accountName: account.name || rule.scope?.name || rule.scope?.email || 'Konto Cloudflare',
+              accountName: account.name || rule.scope?.name || rule.scope?.email || 'Cloudflare Account',
             })
           )
         }
       } catch (err) {
-        console.warn(`[fetchFirstPageRules] Błąd reguł konta ${account.name}:`, err)
+        console.warn(`[fetchFirstPageRules] Error fetching account rules for ${account.name}:`, err)
       }
     }
     return Array.from(rulesMap.values())
@@ -684,7 +684,7 @@ export async function fetchFirstPageRules(
                     zone.account?.name ||
                     rule.scope?.name ||
                     rule.scope?.email ||
-                    'Konto Cloudflare',
+                    'Cloudflare Account',
                 })
               )
             }
@@ -700,7 +700,7 @@ export async function fetchFirstPageRules(
           }
         }
       } catch (err) {
-        console.warn(`[fetchFirstPageRules] Błąd reguł strefy ${zone.name}:`, err)
+        console.warn(`[fetchFirstPageRules] Error fetching zone rules for ${zone.name}:`, err)
       }
     })
   )
@@ -709,6 +709,6 @@ export async function fetchFirstPageRules(
   return Array.from(rulesMap.values())
 }
 
-/** Alias do szybkiego odświeżania różnicowego 1. strony */
+/** Alias for fast differential page 1 refresh */
 export const fetchFirstPageDelta = fetchFirstPageRules
 

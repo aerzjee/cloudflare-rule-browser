@@ -41,7 +41,7 @@ export const BulkActionBar: React.FC<BulkActionBarProps> = ({
             className
           )}
         >
-          {/* Licznik zaznaczonych elementów */}
+          {/* Selected rules counter */}
           <div className="flex items-center gap-2 sm:gap-2.5">
             <div className="flex items-center justify-center w-7 h-7 rounded-lg bg-orange-500/15 text-[#f6821f] shrink-0">
               <CheckSquare className="w-4 h-4" />
@@ -58,7 +58,7 @@ export const BulkActionBar: React.FC<BulkActionBarProps> = ({
 
           <div className="h-5 w-px bg-slate-200 dark:bg-white/10 hidden sm:block" />
 
-          {/* Przyciski akcji */}
+          {/* Action buttons */}
           <div className="flex items-center gap-2 shrink-0">
             <GlassButton
               variant="ghost"

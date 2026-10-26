@@ -92,7 +92,7 @@ export const InlineModeDropdown: React.FC<InlineModeDropdownProps> = ({
   const buttonRef = useRef<HTMLButtonElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
 
-  // Czyszczenie timerów mikroanimacji przy unmount
+  // Clear micro-animation timers on unmount
   useEffect(() => {
     return () => {
       if (successTimerRef.current) clearTimeout(successTimerRef.current)
@@ -112,7 +112,7 @@ export const InlineModeDropdown: React.FC<InlineModeDropdownProps> = ({
   const modeLabel = modeTranslation?.label || rule.mode
   const Icon = visual.icon
 
-  // Obliczenie pozycji dla Portal
+  // Calculate viewport coordinates for Portal rendering
   const updatePosition = () => {
     if (!buttonRef.current) return
     const rect = buttonRef.current.getBoundingClientRect()
@@ -137,7 +137,7 @@ export const InlineModeDropdown: React.FC<InlineModeDropdownProps> = ({
     setIsOpen((prev) => !prev)
   }
 
-  // Zamknięcie po kliknięciu poza elementem lub przy scrollu
+  // Close on click outside, scroll, or resize
   useEffect(() => {
     if (!isOpen) return
 
@@ -207,7 +207,7 @@ export const InlineModeDropdown: React.FC<InlineModeDropdownProps> = ({
         setJustUpdated(false)
       }, 950)
     } catch (err) {
-      console.error('Błąd podczas aktualizacji trybu reguły:', err)
+      console.error('Error while updating rule mode:', err)
     } finally {
       setIsUpdating(false)
     }
@@ -215,7 +215,7 @@ export const InlineModeDropdown: React.FC<InlineModeDropdownProps> = ({
 
   return (
     <div className={cn('relative inline-flex items-center', className)}>
-      {/* Przycisk badge akcji w wierszu z mikroanimacją elastyczną */}
+      {/* Inline action mode badge button with elastic feedback animation */}
       <motion.button
         ref={buttonRef}
         type="button"
@@ -238,7 +238,7 @@ export const InlineModeDropdown: React.FC<InlineModeDropdownProps> = ({
           isUpdating && 'opacity-80 cursor-wait'
         )}
       >
-        {/* Rozchodzący się i gasnący pierścień/glow w kolorze wybranego trybu */}
+        {/* Expanding & fading glow ring in the color of the selected mode */}
         {justUpdated && (
           <motion.span
             key="glow-ring"
@@ -297,7 +297,7 @@ export const InlineModeDropdown: React.FC<InlineModeDropdownProps> = ({
         />
       </motion.button>
 
-      {/* Szklany Dropdown renderowany przez Portal do document.body */}
+      {/* Glass dropdown rendered into document.body via Portal */}
       {typeof document !== 'undefined' &&
         createPortal(
           <AnimatePresence>

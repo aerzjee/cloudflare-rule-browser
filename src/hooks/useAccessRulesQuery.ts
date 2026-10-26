@@ -41,7 +41,7 @@ export function useAccessRulesQuery(): UseAccessRulesQueryResult {
   const query = useQuery<NormalizedAccessRule[], Error>({
     queryKey: ['cloudflare', 'access_rules', { email, accountLevelOnly }],
     queryFn: async () => {
-      // 1. Sprawdź cache IndexedDB jeśli nie wymuszono odświeżenia
+      // 1. Check IndexedDB cache unless forced refresh was requested
       if (!forceRefreshRef.current) {
         const cached = await getCachedRules(accountLevelOnly)
         if (cached && cached.length > 0) {
@@ -51,7 +51,7 @@ export function useAccessRulesQuery(): UseAccessRulesQueryResult {
             percentage: 100,
             label: getTranslations().api.rulesLoadedIndexedDb(cached.length),
           })
-          // Jeśli znacznik ostatniego odświeżenia nie jest jeszcze ustawiony, zainicjalizuj go
+          // Initialize lastRefreshAt timestamp if not already set
           if (!useSettingsStore.getState().lastRefreshAt) {
             useSettingsStore.getState().markRefreshed()
           }
@@ -59,10 +59,10 @@ export function useAccessRulesQuery(): UseAccessRulesQueryResult {
         }
       }
 
-      // Reset flagi wymuszonego odświeżenia
+      // Reset force refresh flag
       forceRefreshRef.current = false
 
-      // 2. Pobierz świeże dane z Cloudflare API
+      // 2. Fetch fresh data from Cloudflare API
       setProgress({
         loaded: 0,
         total: 100,
@@ -75,23 +75,23 @@ export function useAccessRulesQuery(): UseAccessRulesQueryResult {
         onProgress: setProgress,
       })
 
-      // 3. Zapisz w IndexedDB w tle
+      // 3. Persist to IndexedDB in background
       await setCachedRules(accountLevelOnly, freshRules)
 
-      // Zarejestruj pomyślne odświeżenie danych i zaplanuj kolejne
+      // Register successful refresh and schedule the next cycle
       useSettingsStore.getState().markRefreshed()
 
       return freshRules
     },
     enabled: Boolean(email && token),
-    // Nieskończony czas świeżości – brak niepotrzebnych refetchy sieciowych
+    // Infinite stale time – prevent automatic background network refetches
     staleTime: Infinity,
     gcTime: Infinity,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
   })
 
-  // Wymuszone odświeżenie: czyści IndexedDB i pobiera z sieci z paskiem postępu
+  // Force refresh: clears IndexedDB and refetches from network with progress bar
   const forceRefresh = useCallback(async () => {
     forceRefreshRef.current = true
     await clearCachedRules(accountLevelOnly)
@@ -104,19 +104,19 @@ export function useAccessRulesQuery(): UseAccessRulesQueryResult {
     return await query.refetch()
   }, [accountLevelOnly, query])
 
-  // Cykliczne odświeżanie reguł w tle (Auto-Refresh)
+  // Periodic background auto-refresh
   useEffect(() => {
     if (!email || !token || autoRefreshInterval <= 0) {
       return
     }
 
-    // Upewnij się, że czas kolejnego odświeżenia jest wyznaczony
+    // Ensure nextRefreshAt timestamp is scheduled
     if (!useSettingsStore.getState().nextRefreshAt) {
       useSettingsStore.getState().scheduleNextRefresh()
     }
 
     const intervalId = setInterval(async () => {
-      // Pomiń odświeżanie, jeśli aktualnie trwa inne zapytanie sieciowe
+      // Skip auto-refresh if a network request is already ongoing
       if (query.isFetching) {
         useSettingsStore.getState().scheduleNextRefresh()
         return
@@ -129,12 +129,12 @@ export function useAccessRulesQuery(): UseAccessRulesQueryResult {
           await forceRefresh()
           useSettingsStore.getState().markRefreshed()
         } catch (err) {
-          console.warn('[AutoRefresh] Błąd podczas pełnego odświeżania:', err)
+          console.warn('[AutoRefresh] Error during full refresh:', err)
           useSettingsStore.getState().setIsAutoRefreshing(false)
           useSettingsStore.getState().scheduleNextRefresh()
         }
       } else {
-        // Quick Delta Sync (pobranie tylko 1. strony - 100 najnowszych reguł)
+        // Quick Delta Sync (fetch page 1 only - up to 100 newest rules)
         try {
           const deltaRules = await fetchFirstPageRules(accountLevelOnly, concurrency)
 
@@ -147,7 +147,7 @@ export function useAccessRulesQuery(): UseAccessRulesQueryResult {
                   ? `account-${r.accountId}-${r.id}`
                   : `zone-${r.zoneId}-${r.id}`
 
-              // 1. Zbuduj mapę istniejących reguł po unikalnym kluczu
+              // 1. Build map of existing rules keyed by unique ID
               const existingMap = new Map<string, NormalizedAccessRule>()
               for (const r of old) {
                 existingMap.set(getRuleKey(r), r)
@@ -155,8 +155,7 @@ export function useAccessRulesQuery(): UseAccessRulesQueryResult {
 
               const newRulesToPrepend: NormalizedAccessRule[] = []
 
-              // 2. Zaktualizuj istniejące wpisy nowymi danymi z 1. strony,
-              //    a zupełnie nowe reguły zbierz do wstawienia na początek listy
+              // 2. Update existing entries with fresh page 1 data, and collect brand new rules
               for (const delta of deltaRules) {
                 const key = getRuleKey(delta)
                 if (existingMap.has(key)) {
@@ -167,15 +166,15 @@ export function useAccessRulesQuery(): UseAccessRulesQueryResult {
                 }
               }
 
-              // 3. Scalenie: nowe reguły na początku listy + zaktualizowana kolejność istniejących
+              // 3. Merge: prepend brand new rules + keep updated order of existing entries
               const updated = [
                 ...newRulesToPrepend,
                 ...old.map((existing) => existingMap.get(getRuleKey(existing)) ?? existing),
               ]
 
-              // 4. Zapisz zaktualizowaną tablicę w IndexedDB w tle
+              // 4. Persist updated rules array to IndexedDB in background
               setCachedRules(accountLevelOnly, updated).catch((err) =>
-                console.warn('[AutoRefresh] Błąd aktualizacji IndexedDB:', err)
+                console.warn('[AutoRefresh] Error updating IndexedDB:', err)
               )
 
               return updated

@@ -26,7 +26,7 @@ export const InlineNoteEditor: React.FC<InlineNoteEditorProps> = ({
 
   const inputRef = useRef<HTMLInputElement>(null)
 
-  // Synchronizacja po aktualizacji z zewnątrz bez cascading effect render
+  // Synchronize with external updates without cascading render cycle
   if (rule.notes !== prevNotes) {
     setPrevNotes(rule.notes)
     if (!isEditing) {
@@ -34,7 +34,7 @@ export const InlineNoteEditor: React.FC<InlineNoteEditorProps> = ({
     }
   }
 
-  // Automatyczny fokus po wejściu w tryb edycji
+  // Auto-focus on entering edit mode
   useEffect(() => {
     if (isEditing) {
       inputRef.current?.focus()
@@ -61,13 +61,13 @@ export const InlineNoteEditor: React.FC<InlineNoteEditorProps> = ({
 
     const trimmed = text.trim()
 
-    // Walidacja limitu Cloudflare API (max 500 znaków)
+    // Cloudflare API note limit validation (max 500 chars)
     if (trimmed.length > 500) {
       setError(t.noteEditor.maxChars)
       return
     }
 
-    // Jeśli nic się nie zmieniło, po prostu zamknij
+    // If unchanged, simply exit edit mode
     if (trimmed === (rule.notes || '').trim()) {
       setIsEditing(false)
       setError(null)
@@ -85,7 +85,7 @@ export const InlineNoteEditor: React.FC<InlineNoteEditorProps> = ({
       }
       setIsEditing(false)
     } catch (err) {
-      console.error('Błąd zapisu notatki:', err)
+      console.error('Error saving note:', err)
       setError(err instanceof Error ? err.message : t.noteEditor.saveError)
     } finally {
       setIsSaving(false)
@@ -103,7 +103,7 @@ export const InlineNoteEditor: React.FC<InlineNoteEditorProps> = ({
     }
   }
 
-  // Widok edycji: szklany input z przyciskami Zapisz i Anuluj
+  // Edit view: glass input with Save and Cancel buttons
   if (isEditing) {
     return (
       <div
@@ -140,7 +140,7 @@ export const InlineNoteEditor: React.FC<InlineNoteEditorProps> = ({
             )}
           </div>
 
-          {/* Przycisk Zapisz (Check) */}
+          {/* Save button (Check) */}
           <button
             type="button"
             onClick={handleSave}
@@ -160,7 +160,7 @@ export const InlineNoteEditor: React.FC<InlineNoteEditorProps> = ({
             )}
           </button>
 
-          {/* Przycisk Anuluj (X) */}
+          {/* Cancel button (X) */}
           <button
             type="button"
             onClick={() => handleCancel()}
@@ -186,7 +186,7 @@ export const InlineNoteEditor: React.FC<InlineNoteEditorProps> = ({
     )
   }
 
-  // Widok spoczynku: tekst notatki lub placeholder z ikoną ołówka przy hoverze
+  // Default view: note text or placeholder with hover pencil icon
   return (
     <div
       onClick={handleStartEdit}

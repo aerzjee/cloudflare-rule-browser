@@ -112,7 +112,7 @@ export const useSettingsStore = create<SettingsState & SettingsActions>()(
     {
       name: SETTINGS_STORAGE_NAME,
       storage: createJSONStorage(() => localStorage),
-      // Zapisuj w localStorage wyłącznie ustawienia konfiguracyjne (pomijaj runtime fields)
+      // Persist only persistent user configuration settings to localStorage (exclude transient runtime fields)
       partialize: (state) => ({
         concurrency: state.concurrency,
         autoRefreshInterval: state.autoRefreshInterval,

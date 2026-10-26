@@ -61,7 +61,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           aria-labelledby="settings-modal-title"
           className="fixed inset-0 z-[100] flex items-center justify-center p-4 overflow-y-auto"
         >
-          {/* Tło (backdrop) */}
+          {/* Backdrop overlay */}
           <motion.div
             onClick={onClose}
             initial={{ opacity: 0 }}
@@ -71,7 +71,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             className="fixed inset-0 bg-slate-950/60 backdrop-blur-md"
           />
 
-          {/* Okno modala */}
+          {/* Modal window */}
           <motion.div
             initial={{ opacity: 0, scale: 0.94, y: 12 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -80,11 +80,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             className="relative w-full max-w-xl z-10 my-8"
           >
             <GlassCard className="p-0 overflow-hidden shadow-2xl border-white/60 dark:border-white/15">
-              {/* Górny pasek gradientowy w barwach Cloudflare */}
+              {/* Top gradient accent bar in Cloudflare colors */}
               <div className="h-1.5 bg-gradient-to-r from-[#f6821f] via-amber-500 to-indigo-500" />
 
               <div className="p-6 space-y-6">
-                {/* Nagłówek */}
+                {/* Modal header */}
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex items-center gap-3">
                     <div className="p-2.5 rounded-2xl bg-orange-500/10 text-[#f6821f] border border-orange-500/20 shadow-sm">
@@ -113,7 +113,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   </button>
                 </div>
 
-                {/* Sekcja 0: Język interfejsu (Language) */}
+                {/* Section 0: Interface Language */}
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
@@ -163,7 +163,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
                 <div className="h-px bg-slate-200/70 dark:bg-white/10" />
 
-                {/* Sekcja 1: Wielowątkowość (Concurrency) */}
+                {/* Section 1: Concurrency */}
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
@@ -177,7 +177,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     </span>
                   </div>
 
-                  {/* Segmented control dla liczby wątków (1-6) */}
+                  {/* Segmented control for thread count (1-6) */}
                   <div className="grid grid-cols-6 gap-1.5 p-1 rounded-xl bg-slate-200/50 dark:bg-slate-800/50 backdrop-blur-md border border-slate-200/80 dark:border-white/10">
                     {CONCURRENCY_OPTIONS.map((num) => {
                       const isSelected = concurrency === num
@@ -210,7 +210,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     })}
                   </div>
 
-                  {/* Informacja o optymalnej wartości */}
+                  {/* Optimal value recommendation info box */}
                   <div className="flex items-start gap-2.5 p-3 rounded-xl backdrop-blur-md bg-orange-500/[0.06] border border-orange-500/20 text-xs text-slate-600 dark:text-slate-300">
                     <Info className="w-4 h-4 text-[#f6821f] shrink-0 mt-0.5" />
                     <p className="leading-relaxed">{t.settings.concurrencyInfo}</p>
@@ -219,7 +219,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
                 <div className="h-px bg-slate-200/70 dark:bg-white/10" />
 
-                {/* Sekcja 2: Cykliczne odświeżanie (Auto-Refresh) */}
+                {/* Section 2: Auto-Refresh */}
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
@@ -236,7 +236,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     )}
                   </div>
 
-                  {/* Wybór interwału czasu */}
+                  {/* Interval selection */}
                   <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
                     {intervalOptions.map((opt) => {
                       const isSelected = autoRefreshInterval === opt.value
@@ -259,7 +259,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     })}
                   </div>
 
-                  {/* Wybór trybu odświeżania (aktywny tylko, gdy interwał > 0) */}
+                  {/* Refresh mode selection (active only when interval > 0) */}
                   <div
                     className={cn(
                       'space-y-2 transition-opacity duration-200',
@@ -271,7 +271,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     </label>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      {/* Opcja 1: Quick Delta Sync */}
+                      {/* Option 1: Quick Delta Sync */}
                       <button
                         type="button"
                         onClick={() => setAutoRefreshMode('first_page')}
@@ -297,7 +297,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         </p>
                       </button>
 
-                      {/* Opcja 2: Full Sync */}
+                      {/* Option 2: Full Sync */}
                       <button
                         type="button"
                         onClick={() => setAutoRefreshMode('full')}
@@ -326,7 +326,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   </div>
                 </div>
 
-                {/* Stopka modala */}
+                {/* Modal footer */}
                 <div className="flex items-center justify-between pt-4 border-t border-slate-200/70 dark:border-white/10">
                   <GlassButton
                     variant="ghost"

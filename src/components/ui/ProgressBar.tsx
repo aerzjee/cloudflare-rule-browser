@@ -40,7 +40,7 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
                   <span className="flex items-center gap-2 text-slate-800 dark:text-slate-200 truncate">
                     <RefreshCw className="w-4 h-4 animate-spin text-[#f6821f] shrink-0" />
                     <span className="truncate">
-                      {progress.label || 'Pobieranie danych z Cloudflare...'}
+                      {progress.label || 'Loading Cloudflare data...'}
                     </span>
                   </span>
                   <span className="font-mono text-sm font-bold text-[#f6821f] shrink-0 ml-2">
@@ -48,7 +48,7 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
                   </span>
                 </div>
 
-                {/* Pasek postępu z płynną animacją */}
+                {/* Animated progress track and fill bar */}
                 <div className="w-full h-2.5 rounded-full bg-slate-200/80 dark:bg-slate-800/80 overflow-hidden shadow-inner">
                   <div
                     className="h-full bg-gradient-to-r from-[#f6821f] via-orange-500 to-amber-500 transition-all duration-300 ease-out rounded-full shadow-sm shadow-orange-500/30"
@@ -56,10 +56,10 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
                   />
                 </div>
 
-                {/* Opcjonalny wskaźnik liczbowy stron/domen */}
+                {/* Optional page/zone count indicator */}
                 {progress.total > 0 && progress.loaded > 0 && (
                   <div className="flex justify-end text-[11px] text-slate-500 dark:text-slate-400 font-mono">
-                    {progress.loaded} z {progress.total}
+                    {progress.loaded} / {progress.total}
                   </div>
                 )}
               </div>

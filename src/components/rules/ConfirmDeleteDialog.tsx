@@ -60,7 +60,7 @@ export const ConfirmDeleteDialog: React.FC<ConfirmDeleteDialogProps> = ({
       const deleteResult = await bulkDeleteAccessRules(rules, setProgress, concurrency)
       setResult(deleteResult)
 
-      // KRYTYCZNE: Natychmiastowa aktualizacja cache'u bez refetchu/invalidacji
+      // CRITICAL: Immediate cache update without network refetch/invalidation
       if (deleteResult.successful.length > 0) {
         const deletedIds = new Set(deleteResult.successful.map((r) => r.id))
 
@@ -68,9 +68,9 @@ export const ConfirmDeleteDialog: React.FC<ConfirmDeleteDialogProps> = ({
           { queryKey: ['cloudflare', 'access_rules'] },
           (old) => {
             const updated = old ? old.filter((rule) => !deletedIds.has(rule.id)) : []
-            // Zaktualizuj IndexedDB w tle bez przeładowywania danych z sieci
+            // Update IndexedDB in background without network reload
             setCachedRules(accountLevelOnly, updated).catch((err) =>
-              console.warn('[ConfirmDeleteDialog] Błąd aktualizacji IndexedDB:', err)
+              console.warn('[ConfirmDeleteDialog] Error updating IndexedDB:', err)
             )
             return updated
           }
@@ -79,7 +79,7 @@ export const ConfirmDeleteDialog: React.FC<ConfirmDeleteDialogProps> = ({
         onSuccess?.(deleteResult.successful)
       }
 
-      // Jeśli nie ma błędów, zamknij modal po krótkim opóźnieniu
+      // If no errors, close modal after short delay
       if (deleteResult.failed.length === 0) {
         setTimeout(() => {
           setIsDeleting(false)
@@ -90,7 +90,7 @@ export const ConfirmDeleteDialog: React.FC<ConfirmDeleteDialogProps> = ({
         setIsDeleting(false)
       }
     } catch (err) {
-      console.error('Błąd podczas usuwania reguł:', err)
+      console.error('Error while deleting rules:', err)
       setIsDeleting(false)
     }
   }
@@ -116,7 +116,7 @@ export const ConfirmDeleteDialog: React.FC<ConfirmDeleteDialogProps> = ({
           aria-labelledby="confirm-delete-title"
           className="fixed inset-0 z-[100] flex items-center justify-center p-4 overflow-y-auto"
         >
-          {/* Tło (backdrop) z płynną animacją */}
+          {/* Backdrop with smooth animation */}
           <motion.div
             onClick={handleClose}
             initial={{ opacity: 0 }}
@@ -126,7 +126,7 @@ export const ConfirmDeleteDialog: React.FC<ConfirmDeleteDialogProps> = ({
             className="fixed inset-0 bg-slate-950/60 backdrop-blur-md"
           />
 
-          {/* Okno modala GlassCard z animacją spring */}
+          {/* GlassCard modal window with spring animation */}
           <motion.div
             initial={{ opacity: 0, scale: 0.92, y: 12 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -135,11 +135,11 @@ export const ConfirmDeleteDialog: React.FC<ConfirmDeleteDialogProps> = ({
             className="relative w-full max-w-lg z-10"
           >
             <GlassCard className="p-0 overflow-hidden shadow-2xl border-white/60 dark:border-white/15">
-              {/* Pasek akcentowy u góry */}
+              {/* Top accent bar */}
               <div className="h-1.5 bg-gradient-to-r from-red-500 via-orange-500 to-amber-500" />
 
               <div className="p-6 space-y-5">
-                {/* Nagłówek modala */}
+                {/* Modal header */}
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex items-center gap-3">
                     <div className="p-2.5 rounded-2xl bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20">
@@ -172,7 +172,7 @@ export const ConfirmDeleteDialog: React.FC<ConfirmDeleteDialogProps> = ({
                   )}
                 </div>
 
-                {/* Stan: w trakcie usuwania z paskiem postępu */}
+                {/* State: deleting in progress with progress bar */}
                 {isDeleting ? (
                   <div className="space-y-4 py-3">
                     <div className="flex items-center justify-between text-xs font-semibold">
@@ -197,7 +197,7 @@ export const ConfirmDeleteDialog: React.FC<ConfirmDeleteDialogProps> = ({
                     </p>
                   </div>
                 ) : result ? (
-                  // Stan: po zakończeniu operacji z ewentualnymi błędami
+                  // State: operation completed with possible error summary
                   <div className="space-y-3 py-2">
                     <div className="flex items-center gap-2 text-sm font-semibold text-emerald-600 dark:text-emerald-400">
                       <CheckCircle2 className="w-4 h-4" />
@@ -223,7 +223,7 @@ export const ConfirmDeleteDialog: React.FC<ConfirmDeleteDialogProps> = ({
                     )}
                   </div>
                 ) : (
-                  // Stan: przed rozpoczęciem (potwierdzenie)
+                  // State: before start (confirmation prompt)
                   <div className="space-y-3 text-sm text-slate-600 dark:text-slate-300">
                     <p>
                       {isSingle
@@ -231,7 +231,7 @@ export const ConfirmDeleteDialog: React.FC<ConfirmDeleteDialogProps> = ({
                         : t.deleteModal.warningBulk(count)}
                     </p>
 
-                    {/* Podgląd pojedynczej reguły */}
+                    {/* Single rule preview */}
                     {isSingle && singleRule && (
                       <div className="p-3 rounded-xl backdrop-blur-md bg-slate-100/70 dark:bg-slate-800/60 border border-slate-200/80 dark:border-white/10 space-y-1.5">
                         <div className="flex items-center justify-between text-xs">
@@ -265,7 +265,7 @@ export const ConfirmDeleteDialog: React.FC<ConfirmDeleteDialogProps> = ({
                       </div>
                     )}
 
-                    {/* Podgląd wielu reguł (zwięzła lista) */}
+                    {/* Multi-rule preview (compact list) */}
                     {!isSingle && (
                       <div className="p-3 rounded-xl backdrop-blur-md bg-slate-100/70 dark:bg-slate-800/60 border border-slate-200/80 dark:border-white/10 max-h-40 overflow-y-auto space-y-1.5">
                         {rules.slice(0, 8).map((r) => (
@@ -303,7 +303,7 @@ export const ConfirmDeleteDialog: React.FC<ConfirmDeleteDialogProps> = ({
                   </div>
                 )}
 
-                {/* Przyciski w stopce */}
+                {/* Footer buttons */}
                 <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-200/70 dark:border-white/10">
                   {result ? (
                     <GlassButton variant="glass" size="md" onClick={handleClose}>

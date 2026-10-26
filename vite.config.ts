@@ -5,8 +5,8 @@ import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
 
-// 1. Pobranie wersji aplikacji:
-// VITE_APP_VERSION -> git describe --tags --abbrev=0 (bez 'v') -> package.json version -> '1.0.0'
+// 1. Resolve application version:
+// VITE_APP_VERSION -> git describe --tags --abbrev=0 (stripping leading 'v') -> package.json version -> '1.0.0'
 let appVersion = process.env.VITE_APP_VERSION
 if (!appVersion) {
   try {
@@ -19,7 +19,7 @@ if (!appVersion) {
       appVersion = latestTag.replace(/^v/, '')
     }
   } catch {
-    // Brak tagów lub brak gita
+    // No tags found or non-git environment
   }
 }
 if (!appVersion) {
@@ -31,8 +31,8 @@ if (!appVersion) {
   }
 }
 
-// 2. Pobranie hasha commita git:
-// VITE_GIT_COMMIT -> commit przypisany do ostatniego taga -> git rev-parse --short HEAD -> 'dev'
+// 2. Resolve git commit hash:
+// VITE_GIT_COMMIT -> commit associated with the latest tag -> git rev-parse --short HEAD -> 'dev'
 let gitCommit = process.env.VITE_GIT_COMMIT
 if (!gitCommit) {
   try {
@@ -49,7 +49,7 @@ if (!gitCommit) {
         .trim()
     }
   } catch {
-    // Brak tagów
+    // No tags found
   }
 }
 if (!gitCommit) {

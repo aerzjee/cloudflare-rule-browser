@@ -217,7 +217,7 @@ export const RulesTable: React.FC<RulesTableProps> = ({
   // Columns definition
   const columns = useMemo<ColumnDef<NormalizedAccessRule>[]>(
     () => [
-      // 1a. Checkbox zaznaczania
+      // 1a. Selection checkbox
       {
         id: 'select',
         header: ({ table }) => (
@@ -530,7 +530,7 @@ export const RulesTable: React.FC<RulesTableProps> = ({
       rowSelection,
       pagination,
     },
-    // UWAGA: Konfiguracja getRowId zgodna ze specyfikacją Cloudflare scope
+    // NOTE: getRowId configuration consistent with Cloudflare scope model
     getRowId: (row) =>
       row.scopeType === 'account'
         ? `account-${row.accountId}-${row.id}`
@@ -546,13 +546,13 @@ export const RulesTable: React.FC<RulesTableProps> = ({
     globalFilterFn,
   })
 
-  // Auto-animate na <tbody> dla płynnych przejść przy usuwaniu/filtrowaniu
+  // Auto-animate on <tbody> for smooth row transitions during delete/filter
   const [tableBodyRef, enableAnimations] = useAutoAnimate<HTMLTableSectionElement>({
     duration: 220,
     easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
   })
 
-  // Optymalizacja wydajności przy dużej liczbie wierszy
+  // Performance optimization for large datasets
   const renderedRowsCount = table.getRowModel().rows.length
   useEffect(() => {
     enableAnimations(renderedRowsCount <= 250)
@@ -570,10 +570,10 @@ export const RulesTable: React.FC<RulesTableProps> = ({
 
   return (
     <div className={cn('space-y-4 w-full', className)}>
-      {/* 3. Szklany pasek narzędziowy nad tabelą */}
+      {/* 3. Glass toolbar above rules table */}
       <GlassCard className="p-4 sm:p-5">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-          {/* Lewa strona: wyszukiwarka */}
+          {/* Left side: Search input */}
           <div className="flex-1 max-w-md">
             <GlassInput
               placeholder={t.table.searchPlaceholder}
@@ -595,9 +595,9 @@ export const RulesTable: React.FC<RulesTableProps> = ({
             />
           </div>
 
-          {/* Środek i Prawa strona: Filtry, Akcje masowe, Odświeżanie */}
+          {/* Middle and Right side: Filters, Bulk actions, Refresh */}
           <div className="flex flex-wrap items-center gap-3">
-            {/* Filtr akcji (Mode) */}
+            {/* Action mode filter */}
             <div className="flex items-center gap-1.5">
               <Filter className="w-4 h-4 text-slate-400 shrink-0 hidden sm:block" />
               <select
@@ -621,7 +621,7 @@ export const RulesTable: React.FC<RulesTableProps> = ({
               </select>
             </div>
 
-            {/* Filtr zakresu (Scope) */}
+            {/* Scope filter */}
             <select
               value={scopeFilter}
               onChange={(e) =>
@@ -641,7 +641,7 @@ export const RulesTable: React.FC<RulesTableProps> = ({
               <option value="zone">{t.table.zoneOnly}</option>
             </select>
 
-            {/* Przycisk usuwania zaznaczonych */}
+            {/* Bulk delete button */}
             {selectedCount > 0 && onDeleteSelected && (
               <GlassButton
                 variant="danger"
@@ -653,7 +653,7 @@ export const RulesTable: React.FC<RulesTableProps> = ({
               </GlassButton>
             )}
 
-            {/* Przycisk odświeżania */}
+            {/* Refresh button */}
             {onRefetch && (
               <GlassButton
                 variant="glass"
@@ -672,7 +672,7 @@ export const RulesTable: React.FC<RulesTableProps> = ({
           </div>
         </div>
 
-        {/* Wskaźnik liczby reguł i aktywnego zaznaczenia */}
+        {/* Rules counter and active selection badge */}
         <div className="flex flex-wrap items-center justify-between gap-2 mt-3 pt-3 border-t border-slate-200/60 dark:border-white/5 text-xs text-slate-500 dark:text-slate-400">
           <div className="flex items-center gap-3">
             <span>
@@ -686,7 +686,7 @@ export const RulesTable: React.FC<RulesTableProps> = ({
             )}
           </div>
 
-          {/* Szybki reset filtrów */}
+          {/* Fast filter reset */}
           {(globalFilter || modeFilter !== 'all' || scopeFilter !== 'all') && (
             <button
               type="button"
@@ -703,11 +703,11 @@ export const RulesTable: React.FC<RulesTableProps> = ({
         </div>
       </GlassCard>
 
-      {/* Tabela w stylistyce Glassmorphism */}
+      {/* Glassmorphism table container */}
       <GlassCard className="p-0 overflow-hidden border border-white/50 dark:border-white/10 shadow-2xl">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
-            {/* Nagłówek tabeli */}
+            {/* Table header */}
             <thead>
               {table.getHeaderGroups().map((headerGroup) => (
                 <tr
@@ -729,13 +729,13 @@ export const RulesTable: React.FC<RulesTableProps> = ({
               ))}
             </thead>
 
-            {/* Ciało tabeli z płynną animacją useAutoAnimate */}
+            {/* Animated table body */}
             <tbody
               ref={tableBodyRef}
               className="divide-y divide-slate-200/60 dark:divide-white/5 text-sm"
             >
               {isLoading ? (
-                // Stan ładowania
+                // Loading skeleton state
                 Array.from({ length: 5 }).map((_, idx) => (
                   <tr key={`skel-${idx}`} className="animate-pulse">
                     <td colSpan={columns.length} className="px-5 py-4">
@@ -744,7 +744,7 @@ export const RulesTable: React.FC<RulesTableProps> = ({
                   </tr>
                 ))
               ) : table.getRowModel().rows.length === 0 ? (
-                // Stan pusty
+                // Empty state
                 <tr>
                   <td
                     colSpan={columns.length}
@@ -764,7 +764,7 @@ export const RulesTable: React.FC<RulesTableProps> = ({
                   </td>
                 </tr>
               ) : (
-                // Wiersze z danymi
+                // Data rows
                 table.getRowModel().rows.map((row) => {
                   const isSelected = row.getIsSelected()
                   return (
@@ -793,10 +793,10 @@ export const RulesTable: React.FC<RulesTableProps> = ({
           </table>
         </div>
 
-        {/* Paginacja */}
+        {/* Pagination */}
         {table.getFilteredRowModel().rows.length > 0 && (
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-5 py-3.5 border-t border-slate-200/80 dark:border-white/10 backdrop-blur-md bg-white/40 dark:bg-slate-950/40 text-xs text-slate-600 dark:text-slate-400">
-            {/* Wybór liczby wierszy na stronę */}
+            {/* Page size selection */}
             <div className="flex items-center gap-2">
               <span>{t.table.rowsPerPage}</span>
               <select
@@ -827,7 +827,7 @@ export const RulesTable: React.FC<RulesTableProps> = ({
               </span>
             </div>
 
-            {/* Przyciski paginacji */}
+            {/* Pagination control buttons */}
             <div className="flex items-center gap-1">
               <button
                 type="button"

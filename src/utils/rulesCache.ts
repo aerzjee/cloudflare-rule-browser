@@ -5,8 +5,8 @@ export const getCacheKey = (accountLevelOnly: boolean): string =>
   'cf-rules-cache-' + (accountLevelOnly ? 'account' : 'zones')
 
 /**
- * Pobiera zcache'owane reguły z IndexedDB dla danego trybu (account lub zones).
- * Zwraca null jeśli brak danych lub błąd odczytu.
+ * Retrieves cached access rules from IndexedDB for a given mode (account or zones).
+ * Returns null if no cached data exists or if a read error occurs.
  */
 export async function getCachedRules(
   accountLevelOnly: boolean
@@ -21,13 +21,13 @@ export async function getCachedRules(
     }
     return null
   } catch (error) {
-    console.warn('[rulesCache] Błąd odczytu z IndexedDB:', error)
+    console.warn('[rulesCache] Error reading from IndexedDB:', error)
     return null
   }
 }
 
 /**
- * Zapisuje tablicę reguł w IndexedDB pod odpowiednim kluczem trybu.
+ * Persists an array of rules to IndexedDB under the appropriate mode key.
  */
 export async function setCachedRules(
   accountLevelOnly: boolean,
@@ -39,12 +39,12 @@ export async function setCachedRules(
     const key = getCacheKey(accountLevelOnly)
     await set(key, rules)
   } catch (error) {
-    console.warn('[rulesCache] Błąd zapisu do IndexedDB:', error)
+    console.warn('[rulesCache] Error writing to IndexedDB:', error)
   }
 }
 
 /**
- * Usuwa zcache'owane reguły dla konkretnego trybu (np. przed wymuszonym odświeżeniem).
+ * Removes cached rules for a specific mode (e.g. prior to a forced refresh).
  */
 export async function clearCachedRules(accountLevelOnly: boolean): Promise<void> {
   if (typeof window === 'undefined') return
@@ -53,12 +53,12 @@ export async function clearCachedRules(accountLevelOnly: boolean): Promise<void>
     const key = getCacheKey(accountLevelOnly)
     await del(key)
   } catch (error) {
-    console.warn('[rulesCache] Błąd usuwania klucza z IndexedDB:', error)
+    console.warn('[rulesCache] Error deleting key from IndexedDB:', error)
   }
 }
 
 /**
- * Czyści cały cache reguł w IndexedDB (np. przy wylogowaniu).
+ * Clears all cached rules across all modes from IndexedDB (e.g. on logout).
  */
 export async function clearAllCachedRules(): Promise<void> {
   if (typeof window === 'undefined') return
@@ -68,6 +68,6 @@ export async function clearAllCachedRules(): Promise<void> {
     await del(getCacheKey(false))
     await clear()
   } catch (error) {
-    console.warn('[rulesCache] Błąd czyszczenia IndexedDB:', error)
+    console.warn('[rulesCache] Error clearing IndexedDB:', error)
   }
 }

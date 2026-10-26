@@ -85,7 +85,7 @@ export const LandingPage: React.FC = () => {
       setErrors({})
       setIsSubmitting(true)
 
-      // Krótkie opóźnienie dla płynnej animacji wejścia
+      // Brief delay for smooth entrance transition animation
       setTimeout(() => {
         const authType = detectAuthType(trimmedToken)
         login({
@@ -104,7 +104,7 @@ export const LandingPage: React.FC = () => {
     <div className="relative min-h-screen flex flex-col selection:bg-orange-500/25">
       <AmbientBackground />
 
-      {/* Górna belka nawigacyjna z przełącznikiem języka EN | PL oraz motywu */}
+      {/* Top navigation bar with EN | PL language switcher and theme control */}
       <GlassNavbar />
 
       <div className="flex-1 flex items-center justify-center px-4 py-12 z-10">

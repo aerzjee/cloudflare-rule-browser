@@ -50,7 +50,7 @@ export const AutoRefreshBadge: React.FC<AutoRefreshBadgeProps> = ({
     return () => clearInterval(intervalId)
   }, [])
 
-  // Wyświetlaj tylko gdy użytkownik jest zalogowany i interwał > 0
+  // Render only when user is authenticated and auto-refresh interval > 0
   if (!isAuthenticated || autoRefreshInterval <= 0) {
     return null
   }

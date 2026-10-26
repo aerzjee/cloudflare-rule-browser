@@ -48,13 +48,13 @@ export const GlassNavbar: React.FC<GlassNavbarProps> = ({
   const logout = useAuthStore((s) => s.logout)
   const queryClient = useQueryClient()
 
-  // Stan modala ustawień i subskrypcja auto-odświeżania
+  // Settings modal state and auto-refresh subscription
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [hasOpenedSettings, setHasOpenedSettings] = useState(false)
   const autoRefreshInterval = useSettingsStore((s) => s.autoRefreshInterval)
   const autoRefreshMode = useSettingsStore((s) => s.autoRefreshMode)
 
-  // Stan modala changelog
+  // Changelog modal state
   const [isChangelogOpen, setIsChangelogOpen] = useState(false)
   const [hasOpenedChangelog, setHasOpenedChangelog] = useState(false)
 
@@ -77,7 +77,7 @@ export const GlassNavbar: React.FC<GlassNavbarProps> = ({
     try {
       await clearAllCachedRules()
     } catch (err) {
-      console.warn('Błąd czyszczenia cache przy wylogowaniu:', err)
+      console.warn('Error clearing cache on logout:', err)
     }
     logout()
     queryClient.clear()
@@ -222,7 +222,7 @@ export const GlassNavbar: React.FC<GlassNavbarProps> = ({
             >
               <Settings className="w-4 h-4 transition-transform hover:rotate-45" />
 
-              {/* Subtelny pulsujący wskaźnik aktywnego auto-refresh */}
+              {/* Subtle pulsing badge for active auto-refresh */}
               {autoRefreshInterval > 0 && (
                 <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
@@ -231,7 +231,7 @@ export const GlassNavbar: React.FC<GlassNavbarProps> = ({
               )}
             </button>
 
-            {/* Wyizolowany komponent odliczający na żywo czas do następnego odświeżenia */}
+            {/* Isolated component displaying real-time countdown to next refresh */}
             <AutoRefreshBadge
               onClick={handleOpenSettings}
               className="hidden lg:inline-flex"
@@ -295,7 +295,7 @@ export const GlassNavbar: React.FC<GlassNavbarProps> = ({
         </div>
       </div>
 
-      {/* Modal konfiguracji aplikacji ładowany asynchronicznie przez Suspense */}
+      {/* Application settings modal loaded asynchronously via Suspense */}
       {hasOpenedSettings && (
         <Suspense fallback={null}>
           <SettingsModal
@@ -305,7 +305,7 @@ export const GlassNavbar: React.FC<GlassNavbarProps> = ({
         </Suspense>
       )}
 
-      {/* Modal historii zmian changelog ładowany asynchronicznie przez Suspense */}
+      {/* Changelog history modal loaded asynchronously via Suspense */}
       {hasOpenedChangelog && (
         <Suspense fallback={null}>
           <ChangelogModal

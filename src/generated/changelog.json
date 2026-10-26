@@ -1,14 +1,21 @@
 {
-  "latestVersion": "1.1.0",
-  "latestCommit": "4310e33",
-  "generatedAt": "2026-10-25T23:30:05.403Z",
+  "latestVersion": "1.1.1",
+  "latestCommit": "b62945d",
+  "generatedAt": "2026-10-26T09:42:52.929Z",
   "releases": [
     {
-      "version": "Unreleased / Next",
-      "tag": "HEAD",
-      "commit": "2beb3df",
+      "version": "1.1.1",
+      "tag": "v1.1.1",
+      "commit": "b62945d",
       "date": "2026-10-26",
       "changes": [
+        {
+          "hash": "b62945d",
+          "date": "2026-10-26",
+          "type": "feat",
+          "scope": "i18n",
+          "message": "add English and Polish language support with English as default and language selector in settings"
+        },
         {
           "hash": "2beb3df",
           "date": "2026-10-26",
