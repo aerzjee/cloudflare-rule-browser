@@ -59,7 +59,8 @@ export const AutoRefreshBadge: React.FC<AutoRefreshBadgeProps> = ({
     ? Math.max(0, Math.ceil((nextRefreshAt - now) / 1000))
     : autoRefreshInterval
 
-  const isSyncing = isAutoRefreshing || remainingSeconds === 0
+  // Show spinning Sync... ONLY when background sync is actively executing
+  const isSyncing = isAutoRefreshing
   const formattedLast = formatLastRefreshTime(lastRefreshAt, language, t.autoRefresh.never)
   const modeLabel =
     autoRefreshMode === 'first_page' ? t.autoRefresh.quickSync : t.autoRefresh.fullSync
@@ -96,7 +97,7 @@ export const AutoRefreshBadge: React.FC<AutoRefreshBadgeProps> = ({
         )}
       </button>
 
-      {/* Szklany dymek tooltipu po najechaniu kursorem */}
+      {/* Glass tooltip popup on hover */}
       <div className="pointer-events-none absolute top-full mt-2.5 left-1/2 -translate-x-1/2 hidden group-hover:flex flex-col items-center z-50 transition-all opacity-0 group-hover:opacity-100 duration-200">
         <div className="w-2 h-2 -mb-1 rotate-45 border-l border-t border-white/60 dark:border-white/10 bg-white/95 dark:bg-slate-900/95" />
         <div className="px-3 py-2 rounded-xl text-center whitespace-nowrap shadow-xl border border-white/60 dark:border-white/10 backdrop-blur-xl bg-white/95 dark:bg-slate-900/95 text-slate-800 dark:text-slate-100 text-xs leading-normal space-y-1">

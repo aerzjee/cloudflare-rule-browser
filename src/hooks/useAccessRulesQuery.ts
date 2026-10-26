@@ -3,9 +3,16 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { fetchAccessRules, fetchFirstPageRules } from '../api/accessRules'
 import { useAuthStore } from '../store/useAuthStore'
 import { useSettingsStore } from '../store/useSettingsStore'
+import { useHighlightStore } from '../store/useHighlightStore'
 import { getCachedRules, setCachedRules, clearCachedRules } from '../utils/rulesCache'
 import { getTranslations } from '../i18n/useTranslation'
 import type { FetchProgress, NormalizedAccessRule } from '../types/cloudflare'
+
+function getRuleKey(rule: NormalizedAccessRule): string {
+  return rule.scopeType === 'account'
+    ? `account-${rule.accountId}-${rule.id}`
+    : `zone-${rule.zoneId}-${rule.id}`
+}
 
 export interface UseAccessRulesQueryResult {
   rules: NormalizedAccessRule[]
@@ -25,9 +32,7 @@ export function useAccessRulesQuery(): UseAccessRulesQueryResult {
   const token = useAuthStore((s) => s.token)
   const accountLevelOnly = useAuthStore((s) => s.accountLevelOnly)
 
-  const concurrency = useSettingsStore((s) => s.concurrency)
   const autoRefreshInterval = useSettingsStore((s) => s.autoRefreshInterval)
-  const autoRefreshMode = useSettingsStore((s) => s.autoRefreshMode)
 
   const forceRefreshRef = useRef<boolean>(false)
 
@@ -104,6 +109,12 @@ export function useAccessRulesQuery(): UseAccessRulesQueryResult {
     return await query.refetch()
   }, [accountLevelOnly, query])
 
+  // Store forceRefresh in a ref to avoid recreating the interval effect
+  const forceRefreshRefCurrent = useRef(forceRefresh)
+  useEffect(() => {
+    forceRefreshRefCurrent.current = forceRefresh
+  }, [forceRefresh])
+
   // Periodic background auto-refresh
   useEffect(() => {
     if (!email || !token || autoRefreshInterval <= 0) {
@@ -116,63 +127,70 @@ export function useAccessRulesQuery(): UseAccessRulesQueryResult {
     }
 
     const intervalId = setInterval(async () => {
-      // Skip auto-refresh if a network request is already ongoing
-      if (query.isFetching) {
+      const { isMutatingRules, autoRefreshMode, concurrency } = useSettingsStore.getState()
+
+      // Skip auto-refresh if a mutation is ongoing or query is actively fetching
+      const isQueryFetching = queryClient.isFetching({ queryKey: ['cloudflare', 'access_rules'] }) > 0
+      if (isMutatingRules || isQueryFetching) {
         useSettingsStore.getState().scheduleNextRefresh()
         return
       }
 
       useSettingsStore.getState().setIsAutoRefreshing(true)
 
-      if (autoRefreshMode === 'full') {
-        try {
-          await forceRefresh()
-          useSettingsStore.getState().markRefreshed()
-        } catch (err) {
-          console.warn('[AutoRefresh] Error during full refresh:', err)
-          useSettingsStore.getState().setIsAutoRefreshing(false)
-          useSettingsStore.getState().scheduleNextRefresh()
-        }
-      } else {
-        // Quick Delta Sync (fetch page 1 only - up to 100 newest rules)
-        try {
+      try {
+        const queryKey = ['cloudflare', 'access_rules', { email, accountLevelOnly }]
+        const previousRules = queryClient.getQueryData<NormalizedAccessRule[]>(queryKey) || []
+
+        if (autoRefreshMode === 'full') {
+          // Perform full network refresh
+          await forceRefreshRefCurrent.current()
+
+          // Compare fresh rules with previous ones to highlight newly synced entries
+          const freshRules = queryClient.getQueryData<NormalizedAccessRule[]>(queryKey) || []
+          if (previousRules.length > 0 && freshRules.length > 0) {
+            const prevKeys = new Set(previousRules.map(getRuleKey))
+            const newKeys = freshRules.filter((r) => !prevKeys.has(getRuleKey(r))).map(getRuleKey)
+            if (newKeys.length > 0) {
+              useHighlightStore.getState().highlightNewRules(newKeys)
+            }
+          }
+        } else {
+          // Quick Delta Sync (fetch page 1 only - up to 100 newest rules)
           const deltaRules = await fetchFirstPageRules(accountLevelOnly, concurrency)
 
           if (deltaRules.length > 0) {
-            const queryKey = ['cloudflare', 'access_rules', { email, accountLevelOnly }]
-
             queryClient.setQueryData<NormalizedAccessRule[]>(queryKey, (old = []) => {
-              const getRuleKey = (r: NormalizedAccessRule) =>
-                r.scopeType === 'account'
-                  ? `account-${r.accountId}-${r.id}`
-                  : `zone-${r.zoneId}-${r.id}`
-
-              // 1. Build map of existing rules keyed by unique ID
               const existingMap = new Map<string, NormalizedAccessRule>()
               for (const r of old) {
                 existingMap.set(getRuleKey(r), r)
               }
 
               const newRulesToPrepend: NormalizedAccessRule[] = []
+              const newlyAddedKeys: string[] = []
 
-              // 2. Update existing entries with fresh page 1 data, and collect brand new rules
               for (const delta of deltaRules) {
                 const key = getRuleKey(delta)
                 if (existingMap.has(key)) {
                   existingMap.set(key, delta)
                 } else {
                   newRulesToPrepend.push(delta)
+                  newlyAddedKeys.push(key)
                   existingMap.set(key, delta)
                 }
               }
 
-              // 3. Merge: prepend brand new rules + keep updated order of existing entries
+              if (newlyAddedKeys.length > 0) {
+                useHighlightStore.getState().highlightNewRules(newlyAddedKeys)
+              }
+
+              // Merge: prepend brand new rules + keep updated order of existing entries
               const updated = [
                 ...newRulesToPrepend,
                 ...old.map((existing) => existingMap.get(getRuleKey(existing)) ?? existing),
               ]
 
-              // 4. Persist updated rules array to IndexedDB in background
+              // Persist updated rules array to IndexedDB in background
               setCachedRules(accountLevelOnly, updated).catch((err) =>
                 console.warn('[AutoRefresh] Error updating IndexedDB:', err)
               )
@@ -180,13 +198,13 @@ export function useAccessRulesQuery(): UseAccessRulesQueryResult {
               return updated
             })
           }
-
-          useSettingsStore.getState().markRefreshed()
-        } catch (err) {
-          console.warn('[AutoRefresh] Błąd podczas synchronizacji różnicowej:', err)
-          useSettingsStore.getState().setIsAutoRefreshing(false)
-          useSettingsStore.getState().scheduleNextRefresh()
         }
+      } catch (err) {
+        console.warn('[AutoRefresh] Error during background refresh:', err)
+      } finally {
+        // ALWAYS mark refreshed and reset isAutoRefreshing to false in finally block
+        useSettingsStore.getState().markRefreshed()
+        useSettingsStore.getState().setIsAutoRefreshing(false)
       }
     }, autoRefreshInterval * 1000)
 
@@ -196,10 +214,6 @@ export function useAccessRulesQuery(): UseAccessRulesQueryResult {
     token,
     accountLevelOnly,
     autoRefreshInterval,
-    autoRefreshMode,
-    concurrency,
-    forceRefresh,
-    query.isFetching,
     queryClient,
   ])
 

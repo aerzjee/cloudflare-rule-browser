@@ -53,6 +53,7 @@ export const ConfirmDeleteDialog: React.FC<ConfirmDeleteDialogProps> = ({
 
   const handleConfirmDelete = async () => {
     setIsDeleting(true)
+    useSettingsStore.getState().setIsMutatingRules(true)
     setProgress({ current: 0, total: rules.length, percentage: 0 })
     setResult(null)
 
@@ -92,6 +93,9 @@ export const ConfirmDeleteDialog: React.FC<ConfirmDeleteDialogProps> = ({
     } catch (err) {
       console.error('Error while deleting rules:', err)
       setIsDeleting(false)
+    } finally {
+      useSettingsStore.getState().setIsMutatingRules(false)
+      useSettingsStore.getState().scheduleNextRefresh()
     }
   }
 

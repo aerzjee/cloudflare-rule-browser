@@ -1,5 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { useAuthStore } from '../store/useAuthStore'
+import { useSettingsStore } from '../store/useSettingsStore'
 import {
   updateAccessRule,
   type UpdateAccessRulePayload,
@@ -15,30 +16,36 @@ export function useUpdateAccessRule() {
     rule: NormalizedAccessRule,
     payload: UpdateAccessRulePayload
   ): Promise<NormalizedAccessRule> => {
-    const updatedRule = await updateAccessRule(rule, payload)
+    useSettingsStore.getState().setIsMutatingRules(true)
+    try {
+      const updatedRule = await updateAccessRule(rule, payload)
 
-    // Immediate local update in TanStack Query in-memory cache
-    queryClient.setQueriesData<NormalizedAccessRule[]>(
-      { queryKey: ['cloudflare', 'access_rules'] },
-      (old = []) => {
-        const getRuleKey = (r: NormalizedAccessRule) =>
-          r.scopeType === 'account'
-            ? `account-${r.accountId}-${r.id}`
-            : `zone-${r.zoneId}-${r.id}`
+      // Immediate local update in TanStack Query in-memory cache
+      queryClient.setQueriesData<NormalizedAccessRule[]>(
+        { queryKey: ['cloudflare', 'access_rules'] },
+        (old = []) => {
+          const getRuleKey = (r: NormalizedAccessRule) =>
+            r.scopeType === 'account'
+              ? `account-${r.accountId}-${r.id}`
+              : `zone-${r.zoneId}-${r.id}`
 
-        const targetKey = getRuleKey(rule)
-        const updated = old.map((r) => (getRuleKey(r) === targetKey ? updatedRule : r))
+          const targetKey = getRuleKey(rule)
+          const updated = old.map((r) => (getRuleKey(r) === targetKey ? updatedRule : r))
 
-        // Background IndexedDB persistence without network reload
-        setCachedRules(accountLevelOnly, updated).catch((err) =>
-          console.warn('[useUpdateAccessRule] Error saving to IndexedDB:', err)
-        )
+          // Background IndexedDB persistence without network reload
+          setCachedRules(accountLevelOnly, updated).catch((err) =>
+            console.warn('[useUpdateAccessRule] Error saving to IndexedDB:', err)
+          )
 
-        return updated
-      }
-    )
+          return updated
+        }
+      )
 
-    return updatedRule
+      return updatedRule
+    } finally {
+      useSettingsStore.getState().setIsMutatingRules(false)
+      useSettingsStore.getState().scheduleNextRefresh()
+    }
   }
 
   return { mutateRule }

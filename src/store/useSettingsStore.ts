@@ -19,6 +19,8 @@ export interface SettingsState {
   nextRefreshAt: number | null
   /** Whether background auto-refresh is currently in progress */
   isAutoRefreshing: boolean
+  /** Whether rule mutation (delete or inline edit) is currently active */
+  isMutatingRules: boolean
 }
 
 export interface SettingsActions {
@@ -35,6 +37,7 @@ export interface SettingsActions {
   markRefreshed: () => void
   scheduleNextRefresh: () => void
   setIsAutoRefreshing: (val: boolean) => void
+  setIsMutatingRules: (val: boolean) => void
   resetSettings: () => void
 }
 
@@ -48,6 +51,7 @@ export const DEFAULT_SETTINGS: SettingsState = {
   lastRefreshAt: null,
   nextRefreshAt: null,
   isAutoRefreshing: false,
+  isMutatingRules: false,
 }
 
 export const useSettingsStore = create<SettingsState & SettingsActions>()(
@@ -118,6 +122,7 @@ export const useSettingsStore = create<SettingsState & SettingsActions>()(
         const interval = get().autoRefreshInterval
         set({
           nextRefreshAt: interval > 0 ? now + interval * 1000 : null,
+          isAutoRefreshing: false,
         })
       },
 
@@ -126,12 +131,18 @@ export const useSettingsStore = create<SettingsState & SettingsActions>()(
           isAutoRefreshing: val,
         }),
 
+      setIsMutatingRules: (val: boolean) =>
+        set({
+          isMutatingRules: val,
+        }),
+
       resetSettings: () =>
         set({
           ...DEFAULT_SETTINGS,
           lastRefreshAt: null,
           nextRefreshAt: null,
           isAutoRefreshing: false,
+          isMutatingRules: false,
         }),
     }),
     {

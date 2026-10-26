@@ -1,14 +1,21 @@
 {
   "latestVersion": "1.1.1",
   "latestCommit": "b62945d",
-  "generatedAt": "2026-10-26T09:54:27.192Z",
+  "generatedAt": "2026-10-26T10:31:12.407Z",
   "releases": [
     {
       "version": "Unreleased / Next",
       "tag": "HEAD",
-      "commit": "1021e77",
+      "commit": "667e646",
       "date": "2026-10-26",
       "changes": [
+        {
+          "hash": "667e646",
+          "date": "2026-10-26",
+          "type": "feat",
+          "scope": "ui,api",
+          "message": "add Cloudflare API rate-limit bar in navbar, hide navbar on login screen, and require explicit save in settings"
+        },
         {
           "hash": "1021e77",
           "date": "2026-10-26",

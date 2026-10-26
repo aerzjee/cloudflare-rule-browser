@@ -38,6 +38,7 @@ import {
 } from 'lucide-react'
 import type { NormalizedAccessRule } from '../../types/cloudflare'
 import { useTranslation } from '../../i18n/useTranslation'
+import { useHighlightStore } from '../../store/useHighlightStore'
 import { GlassButton } from '../ui/GlassButton'
 import { GlassCard } from '../ui/GlassCard'
 import { GlassInput } from '../ui/GlassInput'
@@ -87,7 +88,7 @@ const GlassCheckbox: React.FC<GlassCheckboxProps> = ({
   return (
     <label
       className={cn(
-        'relative inline-flex items-center justify-center cursor-pointer select-none',
+        'relative inline-flex items-center justify-center cursor-pointer select-none w-4 h-4 shrink-0',
         disabled && 'cursor-not-allowed opacity-50'
       )}
     >
@@ -197,6 +198,7 @@ export const RulesTable: React.FC<RulesTableProps> = ({
   "use no memo";
 
   const { t, language } = useTranslation()
+  const newlySyncedRuleKeys = useHighlightStore((s) => s.newlySyncedRuleKeys)
 
   // Local table state
   const [internalRowSelection, setInternalRowSelection] = useState<RowSelectionState>({})
@@ -572,7 +574,7 @@ export const RulesTable: React.FC<RulesTableProps> = ({
     <div className={cn('space-y-4 w-full', className)}>
       {/* 3. Glass toolbar above rules table */}
       <GlassCard className="p-4 sm:p-5">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 min-h-[52px]">
           {/* Left side: Search input */}
           <div className="flex-1 max-w-md">
             <GlassInput
@@ -596,7 +598,7 @@ export const RulesTable: React.FC<RulesTableProps> = ({
           </div>
 
           {/* Middle and Right side: Filters, Bulk actions, Refresh */}
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3 min-h-[40px]">
             {/* Action mode filter */}
             <div className="flex items-center gap-1.5">
               <Filter className="w-4 h-4 text-slate-400 shrink-0 hidden sm:block" />
@@ -673,8 +675,8 @@ export const RulesTable: React.FC<RulesTableProps> = ({
         </div>
 
         {/* Rules counter and active selection badge */}
-        <div className="flex flex-wrap items-center justify-between gap-2 mt-3 pt-3 border-t border-slate-200/60 dark:border-white/5 text-xs text-slate-500 dark:text-slate-400">
-          <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-2 mt-3 pt-3 border-t border-slate-200/60 dark:border-white/5 text-xs text-slate-500 dark:text-slate-400 min-h-[38px]">
+          <div className="flex items-center gap-3 min-h-[26px]">
             <span>
               {t.table.foundRules(table.getFilteredRowModel().rows.length, data.length)}
             </span>
@@ -767,14 +769,17 @@ export const RulesTable: React.FC<RulesTableProps> = ({
                 // Data rows
                 table.getRowModel().rows.map((row) => {
                   const isSelected = row.getIsSelected()
+                  const isNew = Boolean(newlySyncedRuleKeys[row.id])
                   return (
                     <tr
                       key={row.id}
                       className={cn(
                         'transition-colors duration-150',
                         'hover:bg-orange-500/[0.04] dark:hover:bg-orange-500/[0.06]',
-                        isSelected &&
-                          'bg-orange-500/[0.08] dark:bg-orange-500/[0.12] border-l-2 border-l-[#f6821f]'
+                        isSelected
+                          ? 'bg-orange-500/[0.08] dark:bg-orange-500/[0.12] shadow-[inset_2px_0_0_0_#f6821f]'
+                          : 'shadow-none',
+                        isNew && 'animate-rule-blink shadow-[inset_3px_0_0_0_#10b981]'
                       )}
                     >
                       {row.getVisibleCells().map((cell) => (
