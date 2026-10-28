@@ -3,10 +3,12 @@ import { cfFetch } from './cfClient'
 import { useSettingsStore } from '../store/useSettingsStore'
 import { getTranslations } from '../i18n/useTranslation'
 import type {
+  BulkCreateResult,
   CloudflareAccessRule,
   CloudflareAccessRuleMode,
   CloudflareAccount,
   CloudflareZone,
+  CreateRuleInput,
   FetchProgress,
   FirstPageDeltaResult,
   NormalizedAccessRule,
@@ -926,4 +928,263 @@ export async function fetchFirstPageRules(
 
 /** Alias for fast differential page 1 refresh */
 export const fetchFirstPageDelta = fetchFirstPageRules
+
+/**
+ * Automatically detects the Cloudflare IP Access Rule target type from raw input.
+ * Supports:
+ * - 2-letter ISO country code (e.g. "PL", "US") -> target: 'country', uppercase
+ * - ASN (e.g. "AS12345", "as12345", or numeric "12345") -> target: 'asn', format "AS..."
+ * - CIDR subnet (IPv4 CIDR e.g. "198.51.100.0/24" or IPv6 CIDR e.g. "2001:db8::/32") -> target: 'ip_range'
+ * - IPv6 address (e.g. "2001:db8::1", "::1") -> target: 'ip6'
+ * - IPv4 address (e.g. "198.51.100.4") -> target: 'ip'
+ */
+export function detectTargetType(
+  rawValue: string
+): {
+  target: 'ip' | 'ip6' | 'ip_range' | 'asn' | 'country'
+  normalizedValue: string
+} | null {
+  if (!rawValue) return null
+  const trimmed = rawValue.trim()
+  if (!trimmed) return null
+
+  // 1. Two-letter ISO country code (e.g., "PL", "US", "DE")
+  if (/^[a-zA-Z]{2}$/.test(trimmed)) {
+    return {
+      target: 'country',
+      normalizedValue: trimmed.toUpperCase(),
+    }
+  }
+
+  // 2. Autonomous System Number (e.g., "AS13335", "as13335" or pure digits "13335")
+  const asnMatch = trimmed.match(/^AS(\d{1,10})$/i)
+  if (asnMatch) {
+    return {
+      target: 'asn',
+      normalizedValue: `AS${asnMatch[1]}`,
+    }
+  }
+  if (/^\d{1,10}$/.test(trimmed)) {
+    return {
+      target: 'asn',
+      normalizedValue: `AS${trimmed}`,
+    }
+  }
+
+  // Helper: validate IPv4 octets (0-255)
+  const isValidIpv4 = (ip: string): boolean => {
+    const parts = ip.split('.')
+    if (parts.length !== 4) return false
+    for (const part of parts) {
+      if (!/^\d{1,3}$/.test(part)) return false
+      const num = Number(part)
+      if (num < 0 || num > 255) return false
+    }
+    return true
+  }
+
+  // Helper: validate IPv6 structure
+  const isValidIpv6 = (ip: string): boolean => {
+    if (!ip.includes(':')) return false
+    const doubleColonCount = (ip.match(/::/g) || []).length
+    if (doubleColonCount > 1) return false
+
+    if (doubleColonCount === 1) {
+      const [left, right] = ip.split('::')
+      const leftParts = left ? left.split(':') : []
+      const rightParts = right ? right.split(':') : []
+      if (leftParts.length + rightParts.length > 7) return false
+      for (const part of [...leftParts, ...rightParts]) {
+        if (!/^[0-9a-fA-F]{1,4}$/.test(part)) return false
+      }
+      return true
+    }
+
+    const parts = ip.split(':')
+    if (parts.length !== 8) return false
+    for (const part of parts) {
+      if (!/^[0-9a-fA-F]{1,4}$/.test(part)) return false
+    }
+    return true
+  }
+
+  // 3. CIDR IP Range (IPv4 or IPv6 subnet with slash)
+  if (trimmed.includes('/')) {
+    const [ipPart, prefixPart] = trimmed.split('/')
+    if (ipPart && prefixPart !== undefined && /^\d{1,3}$/.test(prefixPart)) {
+      const prefix = Number(prefixPart)
+      if (isValidIpv4(ipPart) && prefix >= 0 && prefix <= 32) {
+        return {
+          target: 'ip_range',
+          normalizedValue: `${ipPart}/${prefix}`,
+        }
+      }
+      if (isValidIpv6(ipPart) && prefix >= 0 && prefix <= 128) {
+        return {
+          target: 'ip_range',
+          normalizedValue: `${ipPart.toLowerCase()}/${prefix}`,
+        }
+      }
+    }
+    return null
+  }
+
+  // 4. IPv6 address
+  if (isValidIpv6(trimmed)) {
+    return {
+      target: 'ip6',
+      normalizedValue: trimmed.toLowerCase(),
+    }
+  }
+
+  // 5. IPv4 address
+  if (isValidIpv4(trimmed)) {
+    return {
+      target: 'ip',
+      normalizedValue: trimmed,
+    }
+  }
+
+  return null
+}
+
+/**
+ * Creates a new IP Access Rule in Cloudflare.
+ * - If scopeType === 'account': POST /api/cf/accounts/${accountId}/firewall/access_rules/rules
+ * - If scopeType === 'zone': POST /api/cf/zones/${zoneId}/firewall/access_rules/rules
+ */
+export async function createAccessRule(
+  params: CreateRuleInput
+): Promise<NormalizedAccessRule> {
+  const { scopeType, accountId, zoneId, mode, target, value, notes } = params
+
+  if (scopeType === 'account') {
+    if (!accountId) {
+      throw new Error('Missing accountId for account-level access rule.')
+    }
+    const endpoint = `/accounts/${accountId}/firewall/access_rules/rules`
+    const body = {
+      mode,
+      configuration: {
+        target,
+        value: value.trim(),
+      },
+      notes: notes?.trim() || '',
+    }
+    const res = await cfFetch<CloudflareAccessRule>(endpoint, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    })
+
+    return normalizeAccessRule(res.result, {
+      accountId,
+      accountName: params.accountName,
+    })
+  }
+
+  // Zone scope
+  if (!zoneId) {
+    throw new Error('Missing zoneId for zone-level access rule.')
+  }
+  const endpoint = `/zones/${zoneId}/firewall/access_rules/rules`
+  const body = {
+    mode,
+    configuration: {
+      target,
+      value: value.trim(),
+    },
+    notes: notes?.trim() || '',
+  }
+  const res = await cfFetch<CloudflareAccessRule>(endpoint, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  })
+
+  return normalizeAccessRule(res.result, {
+    zoneId,
+    zoneName: params.zoneName,
+    accountId: params.accountId,
+    accountName: params.accountName,
+  })
+}
+
+/**
+ * Concurrently creates multiple access rules with p-limit and Promise.allSettled.
+ */
+export async function bulkCreateAccessRules(
+  items: CreateRuleInput[],
+  concurrency?: number,
+  onProgress?: (completed: number, total: number) => void
+): Promise<BulkCreateResult> {
+  const effectiveConcurrency =
+    concurrency ?? useSettingsStore.getState().concurrency ?? 2
+  const limit = pLimit(effectiveConcurrency)
+  const total = items.length
+  let completed = 0
+
+  onProgress?.(0, total)
+
+  const tasks = items.map((item) =>
+    limit(async () => {
+      try {
+        const rule = await createAccessRule(item)
+        return { success: true as const, rule, item }
+      } catch (err) {
+        return {
+          success: false as const,
+          item,
+          message:
+            err instanceof Error ? err.message : 'Unknown error creating rule',
+        }
+      } finally {
+        completed++
+        onProgress?.(completed, total)
+      }
+    })
+  )
+
+  const settled = await Promise.allSettled(tasks)
+
+  const createdRules: NormalizedAccessRule[] = []
+  const errors: Array<{ value: string; message: string }> = []
+
+  for (const outcome of settled) {
+    if (outcome.status === 'fulfilled') {
+      if (outcome.value.success) {
+        createdRules.push(outcome.value.rule)
+      } else {
+        errors.push({
+          value: outcome.value.item.value,
+          message: outcome.value.message,
+        })
+      }
+    } else {
+      errors.push({
+        value: 'unknown',
+        message:
+          outcome.reason instanceof Error
+            ? outcome.reason.message
+            : String(outcome.reason),
+      })
+    }
+  }
+
+  return { createdRules, errors }
+}
+
+/**
+ * Fetches the list of active accounts accessible by the current token.
+ */
+export async function fetchAccountsList(): Promise<CloudflareAccount[]> {
+  const res = await cfFetch<CloudflareAccount[]>('/accounts?page=1&per_page=50')
+  return res.result || []
+}
+
+/**
+ * Fetches the list of active zones accessible by the current token.
+ */
+export async function fetchZonesList(): Promise<CloudflareZone[]> {
+  const res = await cfFetch<CloudflareZone[]>('/zones?page=1&per_page=50')
+  return res.result || []
+}
 

@@ -127,6 +127,7 @@ export interface TranslationDictionary {
     lastPage: string
     deleteRule: string
     copyValue: string
+    addRule: string
   }
   noteEditor: {
     placeholder: string
@@ -174,6 +175,39 @@ export interface TranslationDictionary {
     errorsHeading: string
     errorAccountMissing: string
     errorZoneMissing: string
+  }
+  addRuleModal: {
+    buttonTitle: string
+    title: string
+    subtitle: string
+    scopeTitle: string
+    scopeAccountOnlyDesc: string
+    scopeAccountOption: (name: string) => string
+    scopeZoneOption: (name: string) => string
+    scopePlaceholder: string
+    loadingScopes: string
+    noScopes: string
+    valueTitle: string
+    valuePlaceholder: string
+    valueHelp: string
+    summaryValid: (count: number) => string
+    summaryBreakdown: (types: string) => string
+    summaryInvalid: (count: number) => string
+    invalidSamples: (samples: string) => string
+    modeTitle: string
+    notesTitle: string
+    notesPlaceholder: string
+    charCount: (current: number, max: number) => string
+    btnSubmitSingle: string
+    btnSubmitBulk: (count: number) => string
+    btnSubmitting: string
+    progressText: (current: number, total: number, percentage: number) => string
+    resultSuccessAll: (count: number) => string
+    resultPartial: (success: number, failed: number) => string
+    errorsHeading: string
+    btnClose: string
+    btnCancel: string
+    autoDetectBadge: string
   }
   settings: {
     title: string
@@ -402,6 +436,7 @@ export const translations: Record<'en' | 'pl', TranslationDictionary> = {
       lastPage: 'Last page',
       deleteRule: 'Delete rule',
       copyValue: 'Copy value',
+      addRule: '+ Add Rule',
     },
     noteEditor: {
       placeholder: 'Enter note (max 500 chars)...',
@@ -468,6 +503,46 @@ export const translations: Record<'en' | 'pl', TranslationDictionary> = {
       errorsHeading: 'Errors during deletion:',
       errorAccountMissing: 'Missing accountId for account rule',
       errorZoneMissing: 'Missing zoneId for zone rule',
+    },
+    addRuleModal: {
+      buttonTitle: 'Add Rule',
+      title: 'Add IP Access Rule',
+      subtitle: 'Create single or bulk firewall rules in Cloudflare',
+      scopeTitle: 'Scope',
+      scopeAccountOnlyDesc: 'Account Level (Locked due to account-only session)',
+      scopeAccountOption: (name) => `${name} (Account Level)`,
+      scopeZoneOption: (name) => `${name} (Zone)`,
+      scopePlaceholder: 'Select target scope...',
+      loadingScopes: 'Loading scopes...',
+      noScopes: 'No scopes available',
+      valueTitle: 'Rule Target & Value (Single or Bulk, one per line)',
+      valuePlaceholder:
+        'Enter one value per line, e.g.:\n198.51.100.4\n198.51.100.0/24\n2001:db8::1\n2001:db8::/32\nAS13335\nPL',
+      valueHelp:
+        'Auto-detects IPv4, IPv6, CIDR subnet, ASN (AS...) and ISO 2-letter Country code.',
+      summaryValid: (count) =>
+        `${count} valid ${count === 1 ? 'rule' : 'rules'} detected`,
+      summaryBreakdown: (types) => `(${types})`,
+      summaryInvalid: (count) =>
+        `${count} invalid ${count === 1 ? 'line' : 'lines'}`,
+      invalidSamples: (samples) => `Invalid format in line(s): ${samples}`,
+      modeTitle: 'Action / Mode',
+      notesTitle: 'Note (Optional)',
+      notesPlaceholder: 'Reason for creating rule(s)...',
+      charCount: (current, max) => `${current}/${max} chars`,
+      btnSubmitSingle: 'Add Rule',
+      btnSubmitBulk: (count) => `Add ${count} Rules`,
+      btnSubmitting: 'Creating...',
+      progressText: (current, total, percentage) =>
+        `Creating rules: ${current} / ${total} (${percentage}%)...`,
+      resultSuccessAll: (count) =>
+        `Successfully created all ${count} ${count === 1 ? 'rule' : 'rules'}!`,
+      resultPartial: (success, failed) =>
+        `Created ${success} ${success === 1 ? 'rule' : 'rules'}, ${failed} failed:`,
+      errorsHeading: 'Creation errors:',
+      btnClose: 'Close',
+      btnCancel: 'Cancel',
+      autoDetectBadge: 'Auto-detected',
     },
     settings: {
       title: 'Application Settings',
@@ -706,6 +781,7 @@ export const translations: Record<'en' | 'pl', TranslationDictionary> = {
       lastPage: 'Ostatnia strona',
       deleteRule: 'Usuń regułę',
       copyValue: 'Kopiuj wartość',
+      addRule: '+ Dodaj regułę',
     },
     noteEditor: {
       placeholder: 'Wpisz notatkę (max 500 znaków)...',
@@ -778,6 +854,60 @@ export const translations: Record<'en' | 'pl', TranslationDictionary> = {
       errorsHeading: 'Błędy podczas usuwania:',
       errorAccountMissing: 'Brak wymaganego accountId dla reguły konta',
       errorZoneMissing: 'Brak wymaganego zoneId dla reguły strefy',
+    },
+    addRuleModal: {
+      buttonTitle: 'Dodaj regułę',
+      title: 'Dodaj regułę dostępu IP',
+      subtitle: 'Tworzenie pojedynczych lub masowych reguł w Cloudflare',
+      scopeTitle: 'Zakres reguły',
+      scopeAccountOnlyDesc:
+        'Poziom konta (Zablokowany ze względu na sesję tylko dla konta)',
+      scopeAccountOption: (name) => `${name} (Poziom konta)`,
+      scopeZoneOption: (name) => `${name} (Strefa / Domena)`,
+      scopePlaceholder: 'Wybierz zakres docelowy...',
+      loadingScopes: 'Ładowanie zakresów...',
+      noScopes: 'Brak dostępnych zakresów',
+      valueTitle: 'Wartość reguły (pojedynczo lub masowo, po jednej w linii)',
+      valuePlaceholder:
+        'Wpisz po jednej wartości w linii, np.:\n198.51.100.4\n198.51.100.0/24\n2001:db8::1\n2001:db8::/32\nAS13335\nPL',
+      valueHelp:
+        'Automatycznie rozpoznaje IPv4, IPv6, podsieci CIDR, ASN (AS...) oraz 2-literowe kody krajów ISO.',
+      summaryValid: (count) =>
+        count === 1
+          ? 'Wykryto 1 poprawny wpis'
+          : count < 5
+          ? `Wykryto ${count} poprawne wpisy`
+          : `Wykryto ${count} poprawnych wpisów`,
+      summaryBreakdown: (types) => `(${types})`,
+      summaryInvalid: (count) =>
+        count === 1
+          ? '1 błędna linia'
+          : count < 5
+          ? `${count} błędne linie`
+          : `${count} błędnych linii`,
+      invalidSamples: (samples) => `Błędny format w liniach: ${samples}`,
+      modeTitle: 'Akcja / Tryb reguły',
+      notesTitle: 'Notatka (opcjonalnie)',
+      notesPlaceholder: 'Powód dodania reguły...',
+      charCount: (current, max) => `${current}/${max} znaków`,
+      btnSubmitSingle: 'Dodaj regułę',
+      btnSubmitBulk: (count) =>
+        count < 5 ? `Dodaj ${count} reguły` : `Dodaj ${count} reguł`,
+      btnSubmitting: 'Tworzenie...',
+      progressText: (current, total, percentage) =>
+        `Tworzenie reguł: ${current} / ${total} (${percentage}%)...`,
+      resultSuccessAll: (count) =>
+        count === 1
+          ? 'Pomyślnie utworzono 1 regułę!'
+          : count < 5
+          ? `Pomyślnie utworzono wszystkie ${count} reguły!`
+          : `Pomyślnie utworzono wszystkie ${count} reguł!`,
+      resultPartial: (success, failed) =>
+        `Utworzono ${success}, niepowodzenie dla ${failed}:`,
+      errorsHeading: 'Błędy podczas tworzenia:',
+      btnClose: 'Zamknij',
+      btnCancel: 'Anuluj',
+      autoDetectBadge: 'Automatyczne rozpoznanie',
     },
     settings: {
       title: 'Konfiguracja aplikacji',

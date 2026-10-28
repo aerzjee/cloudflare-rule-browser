@@ -30,6 +30,7 @@ import {
   Laptop,
   Minus,
   Network,
+  Plus,
   RefreshCw,
   Search,
   Server,
@@ -44,6 +45,7 @@ import { GlassCard } from '../ui/GlassCard'
 import { GlassInput } from '../ui/GlassInput'
 import { InlineModeDropdown } from './InlineModeDropdown'
 import { InlineNoteEditor } from './InlineNoteEditor'
+import { AddRuleModal } from './AddRuleModal'
 import { cn } from '../../lib/utils'
 
 export interface RulesTableProps {
@@ -53,6 +55,7 @@ export interface RulesTableProps {
   onRefetch?: () => void
   onDeleteRule?: (rule: NormalizedAccessRule) => void
   onDeleteSelected?: (rules: NormalizedAccessRule[]) => void
+  onAddRule?: () => void
   rowSelection?: RowSelectionState
   onRowSelectionChange?: OnChangeFn<RowSelectionState>
   className?: string
@@ -191,6 +194,7 @@ export const RulesTable: React.FC<RulesTableProps> = ({
   onRefetch,
   onDeleteRule,
   onDeleteSelected,
+  onAddRule,
   rowSelection: controlledRowSelection,
   onRowSelectionChange: setControlledRowSelection,
   className,
@@ -200,6 +204,10 @@ export const RulesTable: React.FC<RulesTableProps> = ({
   const { t, language } = useTranslation()
   const newlySyncedRuleKeys = useHighlightStore((s) => s.newlySyncedRuleKeys)
   const removingRuleKeys = useHighlightStore((s) => s.removingRuleKeys)
+
+  // Add rule modal state
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false)
+  const handleOpenAddModal = onAddRule ?? (() => setIsAddModalOpen(true))
 
   // Local table state
   const [internalRowSelection, setInternalRowSelection] = useState<RowSelectionState>({})
@@ -710,6 +718,16 @@ export const RulesTable: React.FC<RulesTableProps> = ({
                 {t.common.refresh}
               </GlassButton>
             )}
+
+            {/* Add Rule button */}
+            <GlassButton
+              variant="primary"
+              size="md"
+              onClick={handleOpenAddModal}
+              leftIcon={<Plus className="w-4 h-4" />}
+            >
+              {t.table.addRule}
+            </GlassButton>
           </div>
         </div>
 
@@ -924,6 +942,13 @@ export const RulesTable: React.FC<RulesTableProps> = ({
           </div>
         )}
       </GlassCard>
+
+      {/* Add IP Access Rule Modal */}
+      <AddRuleModal
+        isOpen={isAddModalOpen}
+        onClose={() => setIsAddModalOpen(false)}
+        rules={data}
+      />
     </div>
   )
 }

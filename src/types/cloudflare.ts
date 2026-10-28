@@ -39,7 +39,7 @@ export interface CloudflareZone {
   }
 }
 
-export type AccessRuleTarget = 'ip' | 'ip_range' | 'asn' | 'country' | string
+export type AccessRuleTarget = 'ip' | 'ip6' | 'ip_range' | 'asn' | 'country' | string
 
 export type AccessRuleMode =
   | 'block'
@@ -107,5 +107,22 @@ export interface ScopeSyncMeta {
 export interface FirstPageDeltaResult {
   rules: NormalizedAccessRule[]
   scopeMetaMap: Map<string, ScopeSyncMeta>
+}
+
+export interface CreateRuleInput {
+  scopeType: 'account' | 'zone'
+  accountId?: string
+  accountName?: string
+  zoneId?: string
+  zoneName?: string
+  mode: CloudflareAccessRuleMode
+  target: 'ip' | 'ip6' | 'ip_range' | 'asn' | 'country'
+  value: string
+  notes?: string
+}
+
+export interface BulkCreateResult {
+  createdRules: NormalizedAccessRule[]
+  errors: Array<{ value: string; message: string }>
 }
 

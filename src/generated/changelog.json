@@ -1,8 +1,23 @@
 {
-  "latestVersion": "1.2.1",
-  "latestCommit": "e876165",
-  "generatedAt": "2026-10-28T12:03:53.006Z",
+  "latestVersion": "1.2.2",
+  "latestCommit": "65b598c",
+  "generatedAt": "2026-10-28T12:36:55.627Z",
   "releases": [
+    {
+      "version": "1.2.2",
+      "tag": "v1.2.2",
+      "commit": "65b598c",
+      "date": "2026-10-28",
+      "changes": [
+        {
+          "hash": "65b598c",
+          "date": "2026-10-28",
+          "type": "feat",
+          "scope": "security",
+          "message": "add session storage toggle, inactivity auto-logout, pre-login token check, and Worker origin guard"
+        }
+      ]
+    },
     {
       "version": "1.2.1",
       "tag": "v1.2.1",
