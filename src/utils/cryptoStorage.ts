@@ -31,36 +31,74 @@ function deobfuscate(encoded: string): string {
 /**
  * Zustand-compatible `StateStorage` that obfuscates the persisted
  * JSON blob so tokens / emails never appear in plaintext in
- * localStorage, DevTools, log files, or Sentry-style error reports.
+ * storage, DevTools, log files, or error reports.
  *
- * Usage with zustand `persist` middleware:
- *   persist(storeCreator, { name: 'cf-auth', storage: createJSONStorage(() => cryptoStorage) })
+ * Supports volatile session storage (sessionStorage) by default,
+ * switching to persistent localStorage only when `rememberSession === true`.
  */
 export const cryptoStorage: StateStorage = {
   getItem(name: string): string | null {
+    if (typeof window === 'undefined') return null
+    const key = `${STORAGE_KEY_PREFIX}:${name}`
     try {
-      const raw = localStorage.getItem(`${STORAGE_KEY_PREFIX}:${name}`)
-      if (raw === null) return null
-      return deobfuscate(raw)
+      // 1. Check sessionStorage first (active volatile session)
+      const sessionRaw = window.sessionStorage?.getItem(key)
+      if (sessionRaw !== null) {
+        return deobfuscate(sessionRaw)
+      }
+      // 2. Fallback to localStorage (persistent session)
+      const localRaw = window.localStorage?.getItem(key)
+      if (localRaw !== null) {
+        return deobfuscate(localRaw)
+      }
+      return null
     } catch {
-      // Corrupted data — wipe it and return null so the store resets
-      localStorage.removeItem(`${STORAGE_KEY_PREFIX}:${name}`)
+      // Corrupted data — wipe both storages so the store safely resets
+      try {
+        window.sessionStorage?.removeItem(key)
+        window.localStorage?.removeItem(key)
+      } catch {
+        // Ignore storage access errors
+      }
       return null
     }
   },
 
   setItem(name: string, value: string): void {
+    if (typeof window === 'undefined') return
+    const key = `${STORAGE_KEY_PREFIX}:${name}`
     try {
-      localStorage.setItem(`${STORAGE_KEY_PREFIX}:${name}`, obfuscate(value))
+      let rememberSession = false
+      try {
+        const parsed = JSON.parse(value)
+        rememberSession = Boolean(parsed?.state?.rememberSession)
+      } catch {
+        // Fallback to volatile session
+      }
+
+      const obfuscated = obfuscate(value)
+
+      if (rememberSession) {
+        window.localStorage?.setItem(key, obfuscated)
+        window.sessionStorage?.removeItem(key)
+      } else {
+        window.sessionStorage?.setItem(key, obfuscated)
+        window.localStorage?.removeItem(key)
+      }
     } catch (err) {
-      // Storage quota exceeded or private browsing — fail silently
-      console.warn('[cryptoStorage] Could not persist session')
-      void err
+      console.warn('[cryptoStorage] Could not persist session:', err)
     }
   },
 
   removeItem(name: string): void {
-    localStorage.removeItem(`${STORAGE_KEY_PREFIX}:${name}`)
+    if (typeof window === 'undefined') return
+    const key = `${STORAGE_KEY_PREFIX}:${name}`
+    try {
+      window.sessionStorage?.removeItem(key)
+      window.localStorage?.removeItem(key)
+    } catch {
+      // Ignore storage access errors
+    }
   },
 }
 

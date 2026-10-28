@@ -1,8 +1,23 @@
 /**
- * Cloudflare Worker: Zero-Dependency CORS Proxy for Cloudflare API v4
+ * Cloudflare Worker: Zero-Dependency CORS Proxy with Strict Origin Protection
  *
  * Designed for static deployments (such as GitHub Pages) where no backend Node.js
  * server is available to handle CORS and upstream request proxying.
+ *
+ * Security Features:
+ * - Strict Origin Protection: Blocks unauthorized origins, third-party domains, and open abuse.
+ * - Granular CORS headers (Access-Control-Allow-Origin reflects verified origin, avoiding wildcard '*').
+ * - Whitelists only required Cloudflare authentication headers.
+ * - Propagates Cloudflare API rate-limiting headers (ratelimit, ratelimit-policy).
+ *
+ * Configuration:
+ * - Default allowed origins include:
+ *   - https://aerzjee.github.io (Repository Owner GitHub Pages)
+ *   - http://localhost:5173 (Vite development server)
+ *   - http://localhost:3000 (Local Docker/Hono test container)
+ * - For forks or custom domains: configure the `ALLOWED_ORIGINS` environment variable
+ *   in Cloudflare Dashboard (Workers & Pages -> Service -> Settings -> Variables and Secrets)
+ *   as a comma-separated list (e.g. "https://my-user.github.io,https://my-domain.com").
  *
  * Deployment Options:
  * 1. Cloudflare Dashboard:
@@ -11,23 +26,19 @@
  *    - Copy your worker URL (e.g. https://cf-cors-proxy.<subdomain>.workers.dev).
  * 2. Wrangler CLI:
  *    - npx wrangler deploy workers/cf-cors-proxy.ts --name cf-cors-proxy --compatibility-date 2024-01-01
- *
- * Usage:
- * - Enter `https://<your-worker>.workers.dev/api/cf` in the "Advanced / Proxy Endpoint"
- *   field on the login screen, or set the repository variable `VITE_API_PROXY_URL`.
  */
 
 export interface Env {
-  // Optional environment variables or bindings can be defined here
+  /** Optional comma-separated list of allowed origins (e.g. "https://user.github.io,http://localhost:5173") */
+  ALLOWED_ORIGINS?: string
 }
 
-const CORS_HEADERS: Record<string, string> = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers':
-    'Authorization, X-Auth-Email, X-Auth-Key, Content-Type, Accept',
-  'Access-Control-Max-Age': '86400',
-}
+/** Default production and local origins */
+export const DEFAULT_ALLOWED_ORIGINS: readonly string[] = [
+  'https://aerzjee.github.io',
+  'http://localhost:5173',
+  'http://localhost:3000',
+]
 
 const ALLOWED_FORWARD_HEADERS = [
   'authorization',
@@ -37,26 +48,92 @@ const ALLOWED_FORWARD_HEADERS = [
   'accept',
 ] as const
 
+/** Parse and normalize allowed origins list */
+function getAllowedOrigins(env?: Env): string[] {
+  if (env?.ALLOWED_ORIGINS) {
+    return env.ALLOWED_ORIGINS.split(',')
+      .map((s) => s.trim().replace(/\/+$/, '').toLowerCase())
+      .filter(Boolean)
+  }
+  return [...DEFAULT_ALLOWED_ORIGINS]
+}
+
+/** Validate whether a request Origin header is permitted */
+function isOriginAllowed(rawOrigin: string | null, allowedOrigins: string[]): boolean {
+  if (!rawOrigin) return false
+  const normalized = rawOrigin.trim().replace(/\/+$/, '').toLowerCase()
+  return allowedOrigins.includes(normalized)
+}
+
 export default {
-  async fetch(request: Request, _env: Env, _ctx: ExecutionContext): Promise<Response> {
+  async fetch(request: Request, env: Env, _ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url)
+    const allowedOrigins = getAllowedOrigins(env)
+    const rawOrigin = request.headers.get('Origin')
+    const originAllowed = isOriginAllowed(rawOrigin, allowedOrigins)
+
+    // Base security headers present on all responses
+    const securityHeaders: Record<string, string> = {
+      'X-Content-Type-Options': 'nosniff',
+      'Referrer-Policy': 'no-referrer',
+    }
 
     // 1. Handle CORS Preflight (OPTIONS)
     if (request.method === 'OPTIONS') {
+      if (!originAllowed) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            errors: [
+              {
+                code: 403,
+                message: 'Origin not allowed by CORS proxy',
+              },
+            ],
+          }),
+          {
+            status: 403,
+            headers: {
+              'Content-Type': 'application/json; charset=utf-8',
+              ...securityHeaders,
+            },
+          }
+        )
+      }
+
       return new Response(null, {
         status: 204,
-        headers: CORS_HEADERS,
+        headers: {
+          'Access-Control-Allow-Origin': rawOrigin!,
+          'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
+          'Access-Control-Allow-Headers':
+            'Authorization, X-Auth-Email, X-Auth-Key, Content-Type, Accept',
+          'Access-Control-Max-Age': '86400',
+          Vary: 'Origin',
+          ...securityHeaders,
+        },
       })
     }
 
     // 2. Healthcheck & Diagnostic endpoint
     if (url.pathname === '/' || url.pathname === '/health' || url.pathname === '/api/health') {
+      const responseHeaders: Record<string, string> = {
+        'Content-Type': 'application/json; charset=utf-8',
+        ...securityHeaders,
+      }
+      if (rawOrigin && originAllowed) {
+        responseHeaders['Access-Control-Allow-Origin'] = rawOrigin
+        responseHeaders['Vary'] = 'Origin'
+      }
+
       return new Response(
         JSON.stringify(
           {
             status: 'ok',
             service: 'cloudflare-rule-browser-cors-proxy',
             upstream: 'https://api.cloudflare.com/client/v4',
+            allowedOriginsConfigured: allowedOrigins.length,
+            originVerified: originAllowed,
             timestamp: new Date().toISOString(),
           },
           null,
@@ -64,15 +141,34 @@ export default {
         ),
         {
           status: 200,
+          headers: responseHeaders,
+        }
+      )
+    }
+
+    // 3. Enforce Origin Protection on all API requests
+    if (!originAllowed) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          errors: [
+            {
+              code: 403,
+              message: 'Origin not allowed by CORS proxy',
+            },
+          ],
+        }),
+        {
+          status: 403,
           headers: {
             'Content-Type': 'application/json; charset=utf-8',
-            ...CORS_HEADERS,
+            ...securityHeaders,
           },
         }
       )
     }
 
-    // 3. Extract and normalize target Cloudflare API path
+    // 4. Extract and normalize target Cloudflare API path
     let targetPath = url.pathname
     if (targetPath.startsWith('/api/cf')) {
       targetPath = targetPath.slice('/api/cf'.length)
@@ -83,7 +179,7 @@ export default {
 
     const upstreamUrl = `https://api.cloudflare.com/client/v4${targetPath}${url.search}`
 
-    // 4. Filter headers to strict allowlist (prevent leak of internal or client headers)
+    // 5. Filter headers to strict allowlist (prevent leak of internal or client headers)
     const forwardHeaders = new Headers()
     for (const name of ALLOWED_FORWARD_HEADERS) {
       const val = request.headers.get(name)
@@ -92,7 +188,7 @@ export default {
       }
     }
 
-    // 5. Forward request to Cloudflare API v4
+    // 6. Forward request to Cloudflare API v4
     try {
       const hasBody = !['GET', 'HEAD'].includes(request.method.toUpperCase())
       const upstreamResponse = await fetch(upstreamUrl, {
@@ -101,8 +197,12 @@ export default {
         body: hasBody ? request.body : undefined,
       })
 
-      // 6. Construct response with CORS & exposed rate-limiting headers
-      const responseHeaders = new Headers(CORS_HEADERS)
+      // 7. Construct response with CORS, rate-limiting & security headers
+      const responseHeaders = new Headers(securityHeaders)
+
+      // Explicit origin reflection (avoid wildcard '*')
+      responseHeaders.set('Access-Control-Allow-Origin', rawOrigin!)
+      responseHeaders.set('Vary', 'Origin')
 
       const contentType = upstreamResponse.headers.get('content-type')
       if (contentType) {
@@ -148,7 +248,9 @@ export default {
           status: 502,
           headers: {
             'Content-Type': 'application/json; charset=utf-8',
-            ...CORS_HEADERS,
+            'Access-Control-Allow-Origin': rawOrigin!,
+            Vary: 'Origin',
+            ...securityHeaders,
           },
         }
       )

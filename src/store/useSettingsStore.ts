@@ -13,6 +13,8 @@ export interface SettingsState {
   autoRefreshMode: AutoRefreshMode
   /** Application interface language: English (en) or Polish (pl) */
   language: AppLanguage
+  /** Inactivity auto-logout timeout in minutes (0 = disabled, 15, 30, 60) */
+  inactivityTimeout: number
   /** Timestamp Date.now() of the last successful rules fetch/refresh */
   lastRefreshAt: number | null
   /** Timestamp Date.now() of the planned next auto-refresh */
@@ -28,11 +30,13 @@ export interface SettingsActions {
   setAutoRefreshInterval: (interval: number) => void
   setAutoRefreshMode: (mode: AutoRefreshMode) => void
   setLanguage: (lang: AppLanguage) => void
+  setInactivityTimeout: (minutes: number) => void
   updateSettings: (settings: {
     concurrency: number
     autoRefreshInterval: number
     autoRefreshMode: AutoRefreshMode
     language: AppLanguage
+    inactivityTimeout?: number
   }) => void
   markRefreshed: () => void
   scheduleNextRefresh: () => void
@@ -48,6 +52,7 @@ export const DEFAULT_SETTINGS: SettingsState = {
   autoRefreshInterval: 0,
   autoRefreshMode: 'first_page',
   language: 'en',
+  inactivityTimeout: 30,
   lastRefreshAt: null,
   nextRefreshAt: null,
   isAutoRefreshing: false,
@@ -88,6 +93,13 @@ export const useSettingsStore = create<SettingsState & SettingsActions>()(
         set({ language: validated })
       },
 
+      setInactivityTimeout: (minutes: number) => {
+        const allowedTimeouts = [0, 15, 30, 60]
+        const num = Math.max(0, Math.round(Number(minutes) || 0))
+        const validated = allowedTimeouts.includes(num) ? num : 30
+        set({ inactivityTimeout: validated })
+      },
+
       updateSettings: (newSettings) => {
         const allowedIntervals = [0, 30, 60, 300, 600]
         const intervalNum = Math.max(0, Math.round(Number(newSettings.autoRefreshInterval) || 0))
@@ -98,11 +110,16 @@ export const useSettingsStore = create<SettingsState & SettingsActions>()(
         if (typeof document !== 'undefined') {
           document.documentElement.lang = validatedLang
         }
+        const allowedTimeouts = [0, 15, 30, 60]
+        const timeoutNum = Math.max(0, Math.round(Number(newSettings.inactivityTimeout) || 0))
+        const validatedTimeout = allowedTimeouts.includes(timeoutNum) ? timeoutNum : 30
+
         set({
           concurrency: validatedConcurrency,
           autoRefreshInterval: validatedInterval,
           autoRefreshMode: newSettings.autoRefreshMode === 'full' ? 'full' : 'first_page',
           language: validatedLang,
+          inactivityTimeout: validatedTimeout,
           nextRefreshAt: validatedInterval > 0 ? now + validatedInterval * 1000 : null,
         })
       },
@@ -154,6 +171,7 @@ export const useSettingsStore = create<SettingsState & SettingsActions>()(
         autoRefreshInterval: state.autoRefreshInterval,
         autoRefreshMode: state.autoRefreshMode,
         language: state.language,
+        inactivityTimeout: state.inactivityTimeout,
       }),
       onRehydrateStorage: () => (state) => {
         if (state?.language && typeof document !== 'undefined') {

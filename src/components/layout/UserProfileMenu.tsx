@@ -13,12 +13,10 @@ import {
   Sun,
   User,
 } from 'lucide-react'
-import { useQueryClient } from '@tanstack/react-query'
 import { useAuthStore } from '../../store/useAuthStore'
 import { useThemeStore } from '../../store/useThemeStore'
 import { useSettingsStore } from '../../store/useSettingsStore'
 import { useTranslation } from '../../i18n/useTranslation'
-import { clearAllCachedRules } from '../../utils/rulesCache'
 import { cn } from '../../lib/utils'
 
 export interface UserProfileMenuProps {
@@ -40,7 +38,6 @@ export const UserProfileMenu: React.FC<UserProfileMenuProps> = ({
   const logout = useAuthStore((s) => s.logout)
 
   const autoRefreshInterval = useSettingsStore((s) => s.autoRefreshInterval)
-  const queryClient = useQueryClient()
 
   const [isOpen, setIsOpen] = useState(false)
   const [position, setPosition] = useState<{ top: number; right: number }>({
@@ -101,13 +98,7 @@ export const UserProfileMenu: React.FC<UserProfileMenuProps> = ({
   // Complete logout procedure
   const handleLogout = async () => {
     setIsOpen(false)
-    try {
-      await clearAllCachedRules()
-    } catch (err) {
-      console.warn('[UserProfileMenu] Error clearing cache on logout:', err)
-    }
-    logout()
-    queryClient.clear()
+    logout('manual')
   }
 
   // Derive initial for avatar

@@ -86,10 +86,22 @@ const allowedHeaders = ['authorization', 'x-auth-email', 'x-auth-key', 'content-
 ```
 All internal headers, cookies, host identifiers, and untrusted client headers are stripped before dispatching requests to Cloudflare. Upstream error responses sanitize internal infrastructure messages before returning them to the client.
 
-### 3. Client-Side Data Obfuscation
-API tokens and credentials stored in browser `localStorage` are masked using an XOR-based cipher. While client storage cannot defend against full device compromise, this prevents casual token exposure in browser inspection tools, screen shares, and shoulder-surfing.
+### 3. Client-Side Data Obfuscation & Ephemeral Sessions
+API tokens and credentials stored in browser storage are masked using an XOR-based cipher. By default, Cloudflare Rule Browser runs in **Ephemeral Session** mode using `sessionStorage`—credentials vanish as soon as the browser tab is closed. Users can optionally opt in to "Remember session on this device" to persist credentials in `localStorage`.
 
-### 4. Hardened Content Security Policy (CSP)
+### 4. Inactivity Auto-Lock & Zero-Trace Eviction
+To guard against unattended workstations, an activity watcher monitors user input (`mousemove`, `keydown`, `scroll`, `touchstart`):
+- Automatically disconnects and locks the session after a configurable timeout (default 30 min, customizable to 15, 30, 60 min, or disabled).
+- Instantly purges Zustand memory stores, clears TanStack React Query caches, and wipes all indexed firewall rule databases from IndexedDB.
+- Displays an alert banner on the login screen explaining the timeout eviction.
+
+### 5. Pre-Flight Credential & Scope Verification
+Before granting access to the Dashboard, the login flow validates credentials against Cloudflare API endpoints:
+- In **Account Level Only** mode: Probes `GET /accounts` to ensure the token is active and valid.
+- In **All Zones** mode: Probes `GET /zones` to confirm both token validity and required `Zone: Read` permissions.
+- Prevents invalid tokens from loading broken or empty dashboards.
+
+### 6. Hardened Content Security Policy (CSP)
 Every HTTP response is delivered with strict security headers:
 - `default-src 'self'`
 - `connect-src 'self'`
@@ -98,7 +110,7 @@ Every HTTP response is delivered with strict security headers:
 - `object-src 'none'`
 - `base-uri 'self'`
 
-### 5. Unprivileged Container Execution
+### 7. Unprivileged Container Execution
 The Docker image runs under the built-in, unprivileged `node` user (`UID 1000`) rather than `root`, mitigating container escape risks in shared container orchestration environments.
 
 ### 6. Zero-Trace Logout
@@ -265,9 +277,35 @@ GitHub Pages serves pure static assets without running a backend Node.js runtime
 
 ### 1. Zero-Dependency Cloudflare Worker Proxy (`workers/cf-cors-proxy.ts`)
 The repository includes a ready-to-deploy, standalone Cloudflare Worker in `workers/cf-cors-proxy.ts`:
-- **Free Tier Compatible**: Runs within Cloudflare's 100,000 requests/day free allowance.
+- **Free Tier Compatible**: Runs smoothly within Cloudflare's 100,000 requests/day free allowance.
 - **Strict Header Filtering**: Forwards only necessary authentication headers (`Authorization`, `X-Auth-Email`, `X-Auth-Key`, `Content-Type`, `Accept`).
 - **CORS & Rate-Limit Propagation**: Returns required CORS preflight headers and exposes `ratelimit` / `ratelimit-policy` metrics to the frontend.
+- **Built-in Origin Protection**:
+  - Restricts access exclusively to authorized web origins to prevent your worker from being abused as an open proxy.
+  - By default, the worker allows:
+    ```typescript
+    const DEFAULT_ALLOWED_ORIGINS = [
+      'https://aerzjee.github.io',
+      'http://localhost:5173',
+      'http://localhost:3000',
+    ]
+    ```
+  - Disallowed origins receive an immediate `403 Forbidden` JSON error (`{ success: false, errors: [{ code: 403, message: "Origin not allowed by CORS proxy" }] }`).
+  - Wildcard (`*`) origin is never permitted; matching origins are echoed explicitly via `Access-Control-Allow-Origin: <origin>` with `Vary: Origin`.
+
+#### Configuring Origin for Forks
+If you fork this repository or deploy the worker under a custom domain, you can configure your allowed origins without modifying code:
+- **Cloudflare Dashboard (Recommended)**:
+  1. Go to **Workers & Pages** -> select your worker (`cf-cors-proxy`).
+  2. Navigate to **Settings** -> **Variables and Secrets**.
+  3. Add an Environment Variable named `ALLOWED_ORIGINS`.
+  4. Set its value to your domain or a comma-separated list of domains:
+     ```text
+     https://<your-github-username>.github.io,http://localhost:5173
+     ```
+  5. Click **Save and Deploy**.
+- **Or Edit Source Code**:
+  Update `DEFAULT_ALLOWED_ORIGINS` directly in `workers/cf-cors-proxy.ts` before running `npx wrangler deploy`.
 
 #### Deploying the Worker:
 - **Via Wrangler CLI**:
@@ -277,7 +315,8 @@ The repository includes a ready-to-deploy, standalone Cloudflare Worker in `work
 - **Via Cloudflare Dashboard**:
   1. Open **Workers & Pages** -> **Create Application** -> **Create Worker**.
   2. Paste the contents of `workers/cf-cors-proxy.ts` into the quick editor and deploy.
-  3. Note your assigned worker URL (e.g. `https://cf-cors-proxy.<subdomain>.workers.dev`).
+  3. Configure the `ALLOWED_ORIGINS` environment variable under Worker Settings if hosting on your own GitHub Pages domain.
+  4. Note your assigned worker URL (e.g. `https://cf-cors-proxy.<subdomain>.workers.dev`).
 
 ### 2. Automated GitHub Pages Deployment (`deploy-pages.yml`)
 When a version tag (`v*`) is pushed or manually triggered via **Actions** -> **Deploy to GitHub Pages** -> **Run workflow**:

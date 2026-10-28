@@ -19,6 +19,7 @@ import { ConfirmDeleteDialog } from './components/rules/ConfirmDeleteDialog'
 import { LandingPage } from './pages/LandingPage'
 import { useAuthStore, selectIsAuthenticated } from './store/useAuthStore'
 import { useAccessRulesQuery } from './hooks/useAccessRulesQuery'
+import { useInactivityLogout } from './hooks/useInactivityLogout'
 import { useTranslation } from './i18n/useTranslation'
 import type { NormalizedAccessRule } from './types/cloudflare'
 
@@ -62,6 +63,9 @@ export function App() {
 function Dashboard() {
   const { t } = useTranslation()
   const accountLevelOnly = useAuthStore((s) => s.accountLevelOnly)
+
+  // Enforce inactivity auto-logout when configured
+  useInactivityLogout()
 
   // Real TanStack Query v5 hook
   const {

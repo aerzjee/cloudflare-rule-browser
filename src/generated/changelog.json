@@ -1,8 +1,23 @@
 {
-  "latestVersion": "1.2.0",
-  "latestCommit": "1799493",
-  "generatedAt": "2026-10-26T13:10:10.122Z",
+  "latestVersion": "1.2.1",
+  "latestCommit": "e876165",
+  "generatedAt": "2026-10-28T12:03:53.006Z",
   "releases": [
+    {
+      "version": "1.2.1",
+      "tag": "v1.2.1",
+      "commit": "e876165",
+      "date": "2026-10-26",
+      "changes": [
+        {
+          "hash": "e876165",
+          "date": "2026-10-26",
+          "type": "feat",
+          "scope": "navbar",
+          "message": "consolidate account info, theme, language, settings, and logout into glassmorphic profile menu"
+        }
+      ]
+    },
     {
       "version": "1.2.0",
       "tag": "v1.2.0",

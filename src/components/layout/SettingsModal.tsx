@@ -14,6 +14,7 @@ import {
   Languages,
   Sparkles,
   Server,
+  ShieldAlert,
 } from 'lucide-react'
 import {
   useSettingsStore,
@@ -48,6 +49,7 @@ function SettingsModalDialog({ onClose }: { onClose: () => void }) {
   const liveAutoRefreshInterval = useSettingsStore((s) => s.autoRefreshInterval)
   const liveAutoRefreshMode = useSettingsStore((s) => s.autoRefreshMode)
   const liveLanguage = useSettingsStore((s) => s.language)
+  const liveInactivityTimeout = useSettingsStore((s) => s.inactivityTimeout)
   const updateSettings = useSettingsStore((s) => s.updateSettings)
 
   const liveProxyUrl = useAuthStore((s) => s.proxyUrl)
@@ -58,6 +60,7 @@ function SettingsModalDialog({ onClose }: { onClose: () => void }) {
   const [draftAutoRefreshInterval, setDraftAutoRefreshInterval] = useState<number>(liveAutoRefreshInterval)
   const [draftAutoRefreshMode, setDraftAutoRefreshMode] = useState<AutoRefreshMode>(liveAutoRefreshMode)
   const [draftLanguage, setDraftLanguage] = useState<AppLanguage>(liveLanguage)
+  const [draftInactivityTimeout, setDraftInactivityTimeout] = useState<number>(liveInactivityTimeout)
   const [draftProxyUrl, setDraftProxyUrl] = useState<string>(liveProxyUrl || '/api/cf')
 
   // Track if any changes have been made
@@ -66,6 +69,7 @@ function SettingsModalDialog({ onClose }: { onClose: () => void }) {
     draftAutoRefreshInterval !== liveAutoRefreshInterval ||
     draftAutoRefreshMode !== liveAutoRefreshMode ||
     draftLanguage !== liveLanguage ||
+    draftInactivityTimeout !== liveInactivityTimeout ||
     draftProxyUrl.trim() !== (liveProxyUrl || '/api/cf').trim()
 
   // Responsive translation preview matching the selected draft language
@@ -81,6 +85,7 @@ function SettingsModalDialog({ onClose }: { onClose: () => void }) {
       autoRefreshInterval: draftAutoRefreshInterval,
       autoRefreshMode: draftAutoRefreshMode,
       language: draftLanguage,
+      inactivityTimeout: draftInactivityTimeout,
     })
     const cleanProxy = draftProxyUrl.trim() || '/api/cf'
     if (cleanProxy !== liveProxyUrl) {
@@ -94,6 +99,7 @@ function SettingsModalDialog({ onClose }: { onClose: () => void }) {
     setDraftAutoRefreshInterval(DEFAULT_SETTINGS.autoRefreshInterval)
     setDraftAutoRefreshMode(DEFAULT_SETTINGS.autoRefreshMode)
     setDraftLanguage(DEFAULT_SETTINGS.language)
+    setDraftInactivityTimeout(DEFAULT_SETTINGS.inactivityTimeout)
     setDraftProxyUrl('/api/cf')
   }
 
@@ -116,6 +122,13 @@ function SettingsModalDialog({ onClose }: { onClose: () => void }) {
     { value: 60, label: currentT.settings.interval1m },
     { value: 300, label: currentT.settings.interval5m },
     { value: 600, label: currentT.settings.interval10m },
+  ]
+
+  const inactivityOptions = [
+    { value: 0, label: currentT.settings.inactivityDisabled },
+    { value: 15, label: currentT.settings.inactivity15m },
+    { value: 30, label: currentT.settings.inactivity30m },
+    { value: 60, label: currentT.settings.inactivity60m },
   ]
 
   return (
@@ -393,6 +406,51 @@ function SettingsModalDialog({ onClose }: { onClose: () => void }) {
                       {currentT.settings.fullDesc}
                     </p>
                   </button>
+                </div>
+              </div>
+
+              {/* Section 3: Inactivity Auto-Logout (Auto-Lock) */}
+              <div className="space-y-3 pt-1 border-t border-slate-200/60 dark:border-white/10">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <ShieldAlert className="w-4 h-4 text-[#f6821f]" />
+                    <span className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+                      {currentT.settings.inactivityTitle}
+                    </span>
+                  </div>
+                  {draftInactivityTimeout > 0 && (
+                    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                      {draftInactivityTimeout}m
+                    </span>
+                  )}
+                </div>
+
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  {currentT.settings.inactivityDesc}
+                </p>
+
+                {/* Inactivity timeout segmented buttons */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {inactivityOptions.map((opt) => {
+                    const isSelected = draftInactivityTimeout === opt.value
+                    return (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => setDraftInactivityTimeout(opt.value)}
+                        className={cn(
+                          'py-2 px-2.5 rounded-xl text-xs font-semibold transition-all duration-200 cursor-pointer text-center',
+                          'backdrop-blur-md border',
+                          isSelected
+                            ? 'bg-gradient-to-br from-[#f6821f] to-[#ff9838] text-white border-transparent shadow-md shadow-orange-500/25 scale-[1.02]'
+                            : 'bg-white/40 dark:bg-slate-800/40 text-slate-600 dark:text-slate-400 border-slate-200/80 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20'
+                        )}
+                      >
+                        {opt.label}
+                      </button>
+                    )
+                  })}
                 </div>
               </div>
 

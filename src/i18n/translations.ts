@@ -46,6 +46,10 @@ export interface TranslationDictionary {
     proxyUrlHelper: string
     proxyUrlGitHubNotice: string
     resetProxy: string
+    rememberSessionLabel: string
+    rememberSessionDesc: string
+    sessionExpiredInactivity: string
+    verifying: string
   }
   navbar: {
     title: string
@@ -199,6 +203,12 @@ export interface TranslationDictionary {
     hasUnsaved: string
     proxyTitle: string
     proxyDesc: string
+    inactivityTitle: string
+    inactivityDesc: string
+    inactivityDisabled: string
+    inactivity15m: string
+    inactivity30m: string
+    inactivity60m: string
   }
   profile: {
     signedInAs: string
@@ -303,6 +313,12 @@ export const translations: Record<'en' | 'pl', TranslationDictionary> = {
       proxyUrlGitHubNotice:
         'GitHub Pages is a static host. Provide an external CORS proxy endpoint (e.g. Cloudflare Worker or Hono micro-server) to connect to Cloudflare API.',
       resetProxy: 'Reset to default (/api/cf)',
+      rememberSessionLabel: 'Remember session on this device',
+      rememberSessionDesc:
+        'When disabled, credentials are stored in volatile memory and destroyed upon closing the browser tab.',
+      sessionExpiredInactivity:
+        'Session expired due to inactivity. For your security, credentials and cached rules were cleared.',
+      verifying: 'Verifying credentials...',
     },
     navbar: {
       title: 'Cloudflare Rule Browser',
@@ -486,6 +502,13 @@ export const translations: Record<'en' | 'pl', TranslationDictionary> = {
       proxyTitle: 'CORS Proxy Endpoint',
       proxyDesc:
         'Reverse proxy URL (/api/cf for Hono/Docker or external HTTPS Cloudflare Worker URL)',
+      inactivityTitle: 'Inactivity Auto-Logout (Auto-Lock)',
+      inactivityDesc:
+        'Automatically purge stored credentials and cached data after user inactivity.',
+      inactivityDisabled: 'Disabled',
+      inactivity15m: '15 min.',
+      inactivity30m: '30 min. (Recommended)',
+      inactivity60m: '60 min.',
     },
     profile: {
       signedInAs: 'Signed in as',
@@ -594,6 +617,12 @@ export const translations: Record<'en' | 'pl', TranslationDictionary> = {
       proxyUrlGitHubNotice:
         'GitHub Pages serwuje pliki statyczne. Do połączenia z Cloudflare API wymagany jest zewnętrzny endpoint proxy CORS (np. darmowy Cloudflare Worker lub serwer Hono).',
       resetProxy: 'Przywróć domyślne (/api/cf)',
+      rememberSessionLabel: 'Zapamiętaj sesję na tym urządzeniu',
+      rememberSessionDesc:
+        'Gdy opcja jest wyłączona, token przechowywany jest wyłącznie w pamięci ulotnej i niszczony po zamknięciu karty przeglądarki.',
+      sessionExpiredInactivity:
+        'Sesja wygasła z powodu bezczynności. Dla Twojego bezpieczeństwa poświadczenia oraz reguły z pamięci podręcznej zostały usunięte.',
+      verifying: 'Weryfikacja poświadczeń...',
     },
     navbar: {
       title: 'Cloudflare Rule Browser',
@@ -783,6 +812,13 @@ export const translations: Record<'en' | 'pl', TranslationDictionary> = {
       proxyTitle: 'Punkt końcowy Proxy CORS',
       proxyDesc:
         'Adres URL proxy CORS (/api/cf dla Hono/Docker lub zewnętrzny HTTPS Cloudflare Worker)',
+      inactivityTitle: 'Automatyczne wylogowanie (Auto-Lock)',
+      inactivityDesc:
+        'Automatycznie usuwa poświadczenia i reguły z pamięci podręcznej po okresie bezczynności.',
+      inactivityDisabled: 'Wyłączone',
+      inactivity15m: '15 min.',
+      inactivity30m: '30 min. (Zalecane)',
+      inactivity60m: '60 min.',
     },
     profile: {
       signedInAs: 'Zalogowano jako',

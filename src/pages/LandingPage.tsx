@@ -15,6 +15,9 @@ import {
   ChevronDown,
   AlertTriangle,
   Server,
+  ShieldAlert,
+  AlertCircle,
+  X,
 } from 'lucide-react'
 import { GlassCard, GlassCardContent } from '../components/ui/GlassCard'
 import { GlassInput } from '../components/ui/GlassInput'
@@ -24,6 +27,7 @@ import { AmbientBackground } from '../components/ui/AmbientBackground'
 import { useAuthStore, type AuthType } from '../store/useAuthStore'
 import { useThemeStore } from '../store/useThemeStore'
 import { useTranslation } from '../i18n/useTranslation'
+import { verifyCredentials } from '../api/cfClient'
 import { cn } from '../lib/utils'
 
 interface LoginFormErrors {
@@ -49,6 +53,8 @@ export const LandingPage: React.FC = () => {
   const login = useAuthStore((s) => s.login)
   const storedProxyUrl = useAuthStore((s) => s.proxyUrl)
   const setProxyUrl = useAuthStore((s) => s.setProxyUrl)
+  const logoutReason = useAuthStore((s) => s.logoutReason)
+  const setLogoutReason = useAuthStore((s) => s.setLogoutReason)
 
   const isGitHubPages =
     typeof window !== 'undefined' && window.location.hostname.endsWith('github.io')
@@ -56,12 +62,14 @@ export const LandingPage: React.FC = () => {
   const [email, setEmail] = useState('')
   const [token, setToken] = useState('')
   const [accountLevelOnly, setAccountLevelOnly] = useState(false)
+  const [rememberSession, setRememberSession] = useState(false)
   const [proxyUrlInput, setProxyUrlInput] = useState(storedProxyUrl || '/api/cf')
   const [isAdvancedOpen, setIsAdvancedOpen] = useState(
     () => isGitHubPages && (!storedProxyUrl || storedProxyUrl === '/api/cf')
   )
   const [showToken, setShowToken] = useState(false)
   const [errors, setErrors] = useState<LoginFormErrors>({})
+  const [verificationError, setVerificationError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const clearFieldError = useCallback((field: keyof LoginFormErrors) => {
@@ -71,10 +79,11 @@ export const LandingPage: React.FC = () => {
       delete next[field]
       return next
     })
+    setVerificationError(null)
   }, [])
 
   const handleSubmit = useCallback(
-    (e: React.FormEvent) => {
+    async (e: React.FormEvent) => {
       e.preventDefault()
 
       const fieldErrors: LoginFormErrors = {}
@@ -99,12 +108,22 @@ export const LandingPage: React.FC = () => {
       }
 
       setErrors({})
+      setVerificationError(null)
       setIsSubmitting(true)
 
-      // Brief delay for smooth entrance transition animation
-      setTimeout(() => {
-        const authType = detectAuthType(trimmedToken)
-        const cleanProxy = proxyUrlInput.trim() || '/api/cf'
+      const authType = detectAuthType(trimmedToken)
+      const cleanProxy = proxyUrlInput.trim() || '/api/cf'
+
+      try {
+        // Validate credentials and permissions with Cloudflare API before granting access
+        await verifyCredentials({
+          email: trimmedEmail,
+          token: trimmedToken,
+          authType,
+          accountLevelOnly,
+          proxyUrl: cleanProxy,
+        })
+
         setProxyUrl(cleanProxy)
         login({
           email: trimmedEmail,
@@ -112,11 +131,17 @@ export const LandingPage: React.FC = () => {
           authType,
           accountLevelOnly,
           proxyUrl: cleanProxy,
+          rememberSession,
         })
+      } catch (err) {
+        setVerificationError(
+          err instanceof Error ? err.message : 'Failed to verify Cloudflare credentials.'
+        )
+      } finally {
         setIsSubmitting(false)
-      }, 500)
+      }
     },
-    [email, token, accountLevelOnly, proxyUrlInput, setProxyUrl, login, t]
+    [email, token, accountLevelOnly, proxyUrlInput, rememberSession, setProxyUrl, login, t]
   )
 
   return (
@@ -206,6 +231,42 @@ export const LandingPage: React.FC = () => {
             <div className="h-1 bg-gradient-to-r from-[#f6821f] via-indigo-500 to-blue-500" />
 
             <GlassCardContent className="px-6 py-8 sm:px-8">
+              {/* Inactivity Logout Notice */}
+              {logoutReason === 'inactivity' && (
+                <div className="mb-5 p-3.5 rounded-xl backdrop-blur-md bg-amber-500/10 border border-amber-500/30 text-amber-800 dark:text-amber-200 text-xs flex items-start gap-3 shadow-xs">
+                  <ShieldAlert className="w-4 h-4 shrink-0 text-amber-500 mt-0.5" />
+                  <div className="flex-1 leading-relaxed">
+                    {t.landing.sessionExpiredInactivity}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setLogoutReason(null)}
+                    className="text-amber-500 hover:text-amber-700 dark:hover:text-amber-300 p-0.5 cursor-pointer"
+                    aria-label="Dismiss notice"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
+
+              {/* Verification Error Notice */}
+              {verificationError && (
+                <div className="mb-5 p-3.5 rounded-xl backdrop-blur-md bg-red-500/10 border border-red-500/30 text-red-700 dark:text-red-300 text-xs flex items-start gap-3 shadow-xs">
+                  <AlertCircle className="w-4 h-4 shrink-0 text-red-500 mt-0.5" />
+                  <div className="flex-1 leading-relaxed">
+                    {verificationError}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setVerificationError(null)}
+                    className="text-red-500 hover:text-red-700 dark:hover:text-red-200 p-0.5 cursor-pointer"
+                    aria-label="Dismiss error"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
+
               <form onSubmit={handleSubmit} className="space-y-5" noValidate>
                 {/* Email */}
                 <GlassInput
@@ -265,6 +326,17 @@ export const LandingPage: React.FC = () => {
                     size="md"
                     label={t.landing.accountLevelOnly}
                     description={t.landing.accountLevelOnlyDesc}
+                  />
+                </div>
+
+                {/* Remember Session toggle */}
+                <div className="pt-1">
+                  <GlassSwitch
+                    checked={rememberSession}
+                    onChange={setRememberSession}
+                    size="md"
+                    label={t.landing.rememberSessionLabel}
+                    description={t.landing.rememberSessionDesc}
                   />
                 </div>
 
@@ -331,7 +403,7 @@ export const LandingPage: React.FC = () => {
                   isLoading={isSubmitting}
                   leftIcon={<LogIn className="w-5 h-5" />}
                 >
-                  {t.landing.connectButton}
+                  {isSubmitting ? t.landing.verifying : t.landing.connectButton}
                 </GlassButton>
               </form>
             </GlassCardContent>
