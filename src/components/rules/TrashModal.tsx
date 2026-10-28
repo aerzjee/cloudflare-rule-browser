@@ -26,6 +26,7 @@ import { useAuthStore } from '../../store/useAuthStore'
 import { useSettingsStore } from '../../store/useSettingsStore'
 import { useHighlightStore } from '../../store/useHighlightStore'
 import { useTrashStore, type DeletedRuleEntry } from '../../store/useTrashStore'
+import { useRateLimitStore } from '../../store/useRateLimitStore'
 import { setCachedRules } from '../../utils/rulesCache'
 import { useTranslation } from '../../i18n/useTranslation'
 import { GlassButton } from '../ui/GlassButton'
@@ -63,6 +64,8 @@ export const TrashModal: React.FC<TrashModalProps> = ({ isOpen, onClose }) => {
   const trashRules = useTrashStore((s) => s.trashRules)
   const removeRulesFromTrash = useTrashStore((s) => s.removeRulesFromTrash)
   const emptyTrash = useTrashStore((s) => s.emptyTrash)
+  const isThrottled = useRateLimitStore((s) => s.isThrottled)
+  const throttleRemainingSeconds = useRateLimitStore((s) => s.throttleRemainingSeconds)
 
   const [restoringId, setRestoringId] = useState<string | null>(null)
   const [isRestoringAll, setIsRestoringAll] = useState(false)
@@ -353,6 +356,16 @@ export const TrashModal: React.FC<TrashModalProps> = ({ isOpen, onClose }) => {
                       </span>
                     </GlassButton>
                   </div>
+                </div>
+              )}
+
+              {/* Throttled status indicator during restore */}
+              {(isRestoringAll || Boolean(restoringId)) && isThrottled && (
+                <div className="flex items-center justify-center gap-2 p-2.5 my-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-400 text-xs font-semibold animate-pulse shrink-0">
+                  <Clock className="w-4 h-4 text-amber-500 shrink-0" />
+                  <span>
+                    {t.rateLimitWaiting.replace('{seconds}', String(throttleRemainingSeconds))}
+                  </span>
                 </div>
               )}
 

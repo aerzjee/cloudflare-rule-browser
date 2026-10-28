@@ -1,14 +1,21 @@
 {
   "latestVersion": "1.2.2",
   "latestCommit": "65b598c",
-  "generatedAt": "2026-10-28T13:23:40.152Z",
+  "generatedAt": "2026-10-28T13:37:58.052Z",
   "releases": [
     {
       "version": "Unreleased / Next",
       "tag": "HEAD",
-      "commit": "18e1f95",
+      "commit": "639cac9",
       "date": "2026-10-28",
       "changes": [
+        {
+          "hash": "639cac9",
+          "date": "2026-10-28",
+          "type": "fix",
+          "scope": "ui",
+          "message": "remove duplicate refresh button from filters and clean up Add Rule button label and position"
+        },
         {
           "hash": "18e1f95",
           "date": "2026-10-28",

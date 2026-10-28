@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from 'motion/react'
 import {
   CheckSquare,
   ChevronUp,
+  Clock,
   Download,
   FileJson,
   FileSpreadsheet,
@@ -23,6 +24,7 @@ import { exportRulesToCsv, exportRulesToJson } from '../../utils/exportRules'
 import { useAuthStore } from '../../store/useAuthStore'
 import { useSettingsStore } from '../../store/useSettingsStore'
 import { useHighlightStore } from '../../store/useHighlightStore'
+import { useRateLimitStore } from '../../store/useRateLimitStore'
 import { setCachedRules } from '../../utils/rulesCache'
 import { useTranslation } from '../../i18n/useTranslation'
 import { GlassButton } from '../ui/GlassButton'
@@ -60,6 +62,8 @@ export const BulkActionBar: React.FC<BulkActionBarProps> = ({
   const queryClient = useQueryClient()
   const accountLevelOnly = useAuthStore((s) => s.accountLevelOnly)
   const concurrency = useSettingsStore((s) => s.concurrency)
+  const isThrottled = useRateLimitStore((s) => s.isThrottled)
+  const throttleRemainingSeconds = useRateLimitStore((s) => s.throttleRemainingSeconds)
 
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isExportOpen, setIsExportOpen] = useState(false)
@@ -205,6 +209,19 @@ export const BulkActionBar: React.FC<BulkActionBarProps> = ({
 
           {/* Action buttons */}
           <div className="flex items-center gap-2 shrink-0">
+            {/* Throttled queue indicator during bulk update */}
+            {isUpdating && isThrottled && (
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-600 dark:text-amber-400 text-xs font-semibold animate-pulse shrink-0">
+                <Clock className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                <span className="hidden sm:inline">
+                  {t.rateLimitWaiting.replace('{seconds}', String(throttleRemainingSeconds))}
+                </span>
+                <span className="sm:hidden font-mono font-bold">
+                  {throttleRemainingSeconds}s
+                </span>
+              </div>
+            )}
+
             {/* Deselect button */}
             <GlassButton
               variant="ghost"
@@ -240,7 +257,12 @@ export const BulkActionBar: React.FC<BulkActionBarProps> = ({
               >
                 <span>
                   {isUpdating
-                    ? t.bulk.updatingRules(progress.current, progress.total)
+                    ? isThrottled
+                      ? t.rateLimit.rateLimitThrottledBadge.replace(
+                          '{seconds}',
+                          String(throttleRemainingSeconds)
+                        )
+                      : t.bulk.updatingRules(progress.current, progress.total)
                     : t.bulk.changeMode}
                 </span>
               </GlassButton>

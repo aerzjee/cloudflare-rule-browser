@@ -8,7 +8,7 @@
  * - Strict Origin Protection: Blocks unauthorized origins, third-party domains, and open abuse.
  * - Granular CORS headers (Access-Control-Allow-Origin reflects verified origin, avoiding wildcard '*').
  * - Whitelists only required Cloudflare authentication headers.
- * - Propagates Cloudflare API rate-limiting headers (ratelimit, ratelimit-policy).
+ * - Propagates Cloudflare API rate-limiting headers (ratelimit, ratelimit-policy, retry-after).
  *
  * Configuration:
  * - Default allowed origins include:
@@ -220,9 +220,14 @@ export default {
         responseHeaders.set('ratelimit-policy', ratelimitPolicy)
       }
 
+      const retryAfter = upstreamResponse.headers.get('retry-after')
+      if (retryAfter) {
+        responseHeaders.set('retry-after', retryAfter)
+      }
+
       responseHeaders.set(
         'Access-Control-Expose-Headers',
-        'ratelimit, ratelimit-policy, content-type'
+        'ratelimit, ratelimit-policy, retry-after, content-type'
       )
 
       return new Response(upstreamResponse.body, {

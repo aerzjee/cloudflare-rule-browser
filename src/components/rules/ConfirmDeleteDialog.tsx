@@ -5,6 +5,7 @@ import {
   AlertTriangle,
   Building2,
   CheckCircle2,
+  Clock,
   Globe,
   Loader2,
   Trash2,
@@ -23,8 +24,10 @@ import { useAuthStore } from '../../store/useAuthStore'
 import { useSettingsStore } from '../../store/useSettingsStore'
 import { useHighlightStore } from '../../store/useHighlightStore'
 import { useTrashStore } from '../../store/useTrashStore'
+import { useRateLimitStore } from '../../store/useRateLimitStore'
 import { setCachedRules } from '../../utils/rulesCache'
 import { useTranslation } from '../../i18n/useTranslation'
+import { cn } from '../../lib/utils'
 import { GlassButton } from '../ui/GlassButton'
 import { GlassCard } from '../ui/GlassCard'
 
@@ -45,6 +48,8 @@ export const ConfirmDeleteDialog: React.FC<ConfirmDeleteDialogProps> = ({
   const queryClient = useQueryClient()
   const accountLevelOnly = useAuthStore((s) => s.accountLevelOnly)
   const concurrency = useSettingsStore((s) => s.concurrency)
+  const isThrottled = useRateLimitStore((s) => s.isThrottled)
+  const throttleRemainingSeconds = useRateLimitStore((s) => s.throttleRemainingSeconds)
 
   const [isDeleting, setIsDeleting] = useState(false)
   const [progress, setProgress] = useState<BulkDeleteProgress>({
@@ -195,20 +200,41 @@ export const ConfirmDeleteDialog: React.FC<ConfirmDeleteDialogProps> = ({
                   <div className="space-y-4 py-3">
                     <div className="flex items-center justify-between text-xs font-semibold">
                       <span className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
-                        <Loader2 className="w-4 h-4 animate-spin text-red-500" />
+                        {isThrottled ? (
+                          <Clock className="w-4 h-4 text-amber-500 animate-pulse shrink-0" />
+                        ) : (
+                          <Loader2 className="w-4 h-4 animate-spin text-red-500 shrink-0" />
+                        )}
                         {t.deleteModal.deleting} ({progress.current} / {progress.total})...
                       </span>
-                      <span className="font-mono text-red-600 dark:text-red-400">
+                      <span
+                        className={cn(
+                          'font-mono font-bold',
+                          isThrottled ? 'text-amber-500' : 'text-red-600 dark:text-red-400'
+                        )}
+                      >
                         {progress.percentage}%
                       </span>
                     </div>
 
                     <div className="w-full h-2.5 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden shadow-inner">
                       <div
-                        className="h-full bg-gradient-to-r from-red-500 to-orange-500 transition-all duration-300 rounded-full"
+                        className={cn(
+                          'h-full transition-all duration-300 rounded-full',
+                          isThrottled
+                            ? 'bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-500 animate-pulse'
+                            : 'bg-gradient-to-r from-red-500 to-orange-500'
+                        )}
                         style={{ width: `${progress.percentage}%` }}
                       />
                     </div>
+
+                    {isThrottled && (
+                      <div className="flex items-center justify-center gap-2 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-400 text-xs font-semibold animate-pulse">
+                        <Clock className="w-4 h-4 text-amber-500 shrink-0" />
+                        <span>{t.rateLimitWaiting.replace('{seconds}', String(throttleRemainingSeconds))}</span>
+                      </div>
+                    )}
 
                     <p className="text-xs text-center text-slate-500">
                       {t.settings.threads(concurrency)}

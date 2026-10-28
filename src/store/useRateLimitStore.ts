@@ -9,6 +9,12 @@ export interface RateLimitState {
   resetSeconds: number
   /** Timestamp Date.now() of the last received rate limit header */
   lastUpdatedAt: number | null
+  /** Whether the request queue is actively throttled/paused */
+  isThrottled: boolean
+  /** Countdown seconds remaining until requests can resume */
+  throttleRemainingSeconds: number
+  /** Reason for the active throttle */
+  throttleReason: 'preemptive' | 'http_429' | null
 }
 
 export interface RateLimitActions {
@@ -18,6 +24,14 @@ export interface RateLimitActions {
    * `ratelimit-policy`: "default";q=1200;w=300
    */
   updateFromHeaders: (headers: Headers) => void
+  /**
+   * Set active throttle countdown with reason
+   */
+  setThrottleCountdown: (seconds: number, reason: 'preemptive' | 'http_429') => void
+  /**
+   * Clear active throttle state and restore safe remaining quota
+   */
+  clearThrottle: () => void
 }
 
 export const useRateLimitStore = create<RateLimitState & RateLimitActions>((set) => ({
@@ -25,6 +39,27 @@ export const useRateLimitStore = create<RateLimitState & RateLimitActions>((set)
   limit: 1200,
   resetSeconds: 0,
   lastUpdatedAt: null,
+  isThrottled: false,
+  throttleRemainingSeconds: 0,
+  throttleReason: null,
+
+  setThrottleCountdown: (seconds: number, reason: 'preemptive' | 'http_429') => {
+    set({
+      isThrottled: seconds > 0,
+      throttleRemainingSeconds: Math.max(0, seconds),
+      throttleReason: seconds > 0 ? reason : null,
+    })
+  },
+
+  clearThrottle: () => {
+    set((prev) => ({
+      isThrottled: false,
+      throttleRemainingSeconds: 0,
+      throttleReason: null,
+      remaining: Math.max(prev.remaining, prev.limit || 1200),
+      resetSeconds: 0,
+    }))
+  },
 
   updateFromHeaders: (headers: Headers) => {
     const rateLimitHeader = headers.get('ratelimit')

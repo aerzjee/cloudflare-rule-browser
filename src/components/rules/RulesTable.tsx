@@ -27,6 +27,7 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
+  Clock,
   Copy,
   Download,
   FileJson,
@@ -46,6 +47,7 @@ import type { NormalizedAccessRule } from '../../types/cloudflare'
 import { useTranslation } from '../../i18n/useTranslation'
 import { useHighlightStore } from '../../store/useHighlightStore'
 import { useTrashStore } from '../../store/useTrashStore'
+import { useRateLimitStore } from '../../store/useRateLimitStore'
 import { exportRulesToCsv, exportRulesToJson } from '../../utils/exportRules'
 import { GlassButton } from '../ui/GlassButton'
 import { GlassCard } from '../ui/GlassCard'
@@ -211,6 +213,8 @@ export const RulesTable: React.FC<RulesTableProps> = ({
   const { t, language } = useTranslation()
   const newlySyncedRuleKeys = useHighlightStore((s) => s.newlySyncedRuleKeys)
   const removingRuleKeys = useHighlightStore((s) => s.removingRuleKeys)
+  const isThrottled = useRateLimitStore((s) => s.isThrottled)
+  const throttleRemainingSeconds = useRateLimitStore((s) => s.throttleRemainingSeconds)
 
   // Add rule modal state
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
@@ -940,13 +944,33 @@ export const RulesTable: React.FC<RulesTableProps> = ({
             >
               {isLoading ? (
                 // Loading skeleton state
-                Array.from({ length: 5 }).map((_, idx) => (
-                  <tr key={`skel-${idx}`} className="animate-pulse">
-                    <td colSpan={columns.length} className="px-5 py-4">
-                      <div className="h-5 bg-slate-200/70 dark:bg-slate-800/70 rounded-md w-full" />
-                    </td>
-                  </tr>
-                ))
+                <>
+                  {isThrottled && (
+                    <tr>
+                      <td
+                        colSpan={columns.length}
+                        className="px-5 py-3 bg-amber-500/10 border-b border-amber-500/20"
+                      >
+                        <div className="flex items-center justify-center gap-2 text-xs font-semibold text-amber-700 dark:text-amber-400 animate-pulse">
+                          <Clock className="w-4 h-4 text-amber-500 shrink-0" />
+                          <span>
+                            {t.rateLimitWaiting.replace(
+                              '{seconds}',
+                              String(throttleRemainingSeconds)
+                            )}
+                          </span>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                  {Array.from({ length: 5 }).map((_, idx) => (
+                    <tr key={`skel-${idx}`} className="animate-pulse">
+                      <td colSpan={columns.length} className="px-5 py-4">
+                        <div className="h-5 bg-slate-200/70 dark:bg-slate-800/70 rounded-md w-full" />
+                      </td>
+                    </tr>
+                  ))}
+                </>
               ) : table.getRowModel().rows.length === 0 ? (
                 // Empty state
                 <tr>

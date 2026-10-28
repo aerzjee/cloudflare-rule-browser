@@ -1,7 +1,9 @@
 import React from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { RefreshCw } from 'lucide-react'
+import { Clock, RefreshCw } from 'lucide-react'
 import type { FetchProgress } from '../../types/cloudflare'
+import { useRateLimitStore } from '../../store/useRateLimitStore'
+import { useTranslation } from '../../i18n/useTranslation'
 import { GlassCard } from './GlassCard'
 import { cn } from '../../lib/utils'
 
@@ -16,6 +18,10 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
   isVisible = true,
   className,
 }) => {
+  const { t } = useTranslation()
+  const isThrottled = useRateLimitStore((s) => s.isThrottled)
+  const throttleRemainingSeconds = useRateLimitStore((s) => s.throttleRemainingSeconds)
+
   const percentage = Math.min(100, Math.max(0, progress.percentage))
 
   return (
@@ -31,19 +37,38 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
           <div className="py-1">
             <GlassCard
               className={cn(
-                'p-4 sm:p-5 border-orange-500/30 dark:border-orange-500/20 shadow-lg shadow-orange-500/5',
+                'p-4 sm:p-5 transition-colors duration-300',
+                isThrottled
+                  ? 'border-amber-500/40 dark:border-amber-500/30 shadow-lg shadow-amber-500/10'
+                  : 'border-orange-500/30 dark:border-orange-500/20 shadow-lg shadow-orange-500/5',
                 className
               )}
             >
               <div className="space-y-2.5">
                 <div className="flex items-center justify-between text-xs sm:text-sm font-semibold">
                   <span className="flex items-center gap-2 text-slate-800 dark:text-slate-200 truncate">
-                    <RefreshCw className="w-4 h-4 animate-spin text-[#f6821f] shrink-0" />
-                    <span className="truncate">
-                      {progress.label || 'Loading Cloudflare data...'}
+                    {isThrottled ? (
+                      <Clock className="w-4 h-4 text-amber-500 shrink-0 animate-pulse" />
+                    ) : (
+                      <RefreshCw className="w-4 h-4 animate-spin text-[#f6821f] shrink-0" />
+                    )}
+                    <span
+                      className={cn(
+                        'truncate',
+                        isThrottled && 'text-amber-600 dark:text-amber-400 font-semibold'
+                      )}
+                    >
+                      {isThrottled
+                        ? t.rateLimitWaiting.replace('{seconds}', String(throttleRemainingSeconds))
+                        : progress.label || 'Loading Cloudflare data...'}
                     </span>
                   </span>
-                  <span className="font-mono text-sm font-bold text-[#f6821f] shrink-0 ml-2">
+                  <span
+                    className={cn(
+                      'font-mono text-sm font-bold shrink-0 ml-2',
+                      isThrottled ? 'text-amber-500' : 'text-[#f6821f]'
+                    )}
+                  >
                     {percentage}%
                   </span>
                 </div>
@@ -51,7 +76,12 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
                 {/* Animated progress track and fill bar */}
                 <div className="w-full h-2.5 rounded-full bg-slate-200/80 dark:bg-slate-800/80 overflow-hidden shadow-inner">
                   <div
-                    className="h-full bg-gradient-to-r from-[#f6821f] via-orange-500 to-amber-500 transition-all duration-300 ease-out rounded-full shadow-sm shadow-orange-500/30"
+                    className={cn(
+                      'h-full transition-all duration-300 ease-out rounded-full shadow-sm',
+                      isThrottled
+                        ? 'bg-gradient-to-r from-amber-500 via-yellow-500 to-amber-400 animate-pulse shadow-amber-500/30'
+                        : 'bg-gradient-to-r from-[#f6821f] via-orange-500 to-amber-500 shadow-orange-500/30'
+                    )}
                     style={{ width: `${percentage}%` }}
                   />
                 </div>

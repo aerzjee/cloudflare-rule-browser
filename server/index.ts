@@ -66,6 +66,7 @@ const proxyHandler = async (c: import('hono').Context) => {
     const contentType = cfResponse.headers.get('content-type')
     const ratelimit = cfResponse.headers.get('ratelimit')
     const ratelimitPolicy = cfResponse.headers.get('ratelimit-policy')
+    const retryAfter = cfResponse.headers.get('retry-after')
 
     const responseHeaders = new Headers()
     if (contentType) {
@@ -77,7 +78,10 @@ const proxyHandler = async (c: import('hono').Context) => {
     if (ratelimitPolicy) {
       responseHeaders.set('ratelimit-policy', ratelimitPolicy)
     }
-    responseHeaders.set('Access-Control-Expose-Headers', 'ratelimit, ratelimit-policy')
+    if (retryAfter) {
+      responseHeaders.set('retry-after', retryAfter)
+    }
+    responseHeaders.set('Access-Control-Expose-Headers', 'ratelimit, ratelimit-policy, retry-after')
 
     return new Response(responseText, {
       status: cfResponse.status,

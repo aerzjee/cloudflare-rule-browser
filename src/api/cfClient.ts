@@ -39,9 +39,48 @@ function normalizeEndpoint(endpoint: string, proxyUrl?: string): string {
   return `${baseProxy}${path}`
 }
 
+/** Preemptive rate limit buffer threshold (requests remaining before pausing) */
+export const PREEMPTIVE_RATE_LIMIT_THRESHOLD = 10
+
+/** Maximum number of automatic retries on HTTP 429 Too Many Requests */
+export const MAX_429_RETRIES = 3
+
+/** Active singleton promise for rate-limit cooldown to synchronize all parallel requests */
+let activeThrottlePromise: Promise<void> | null = null
+
+/**
+ * Shared throttle mechanism for queue pausing.
+ * Synchronizes concurrent threads (e.g. from p-limit) to wait for the same countdown.
+ */
+export function waitForRateLimitReset(
+  waitSeconds: number,
+  reason: 'preemptive' | 'http_429'
+): Promise<void> {
+  if (activeThrottlePromise) {
+    return activeThrottlePromise
+  }
+
+  const totalSeconds = Math.max(1, Math.ceil(waitSeconds))
+
+  activeThrottlePromise = (async () => {
+    try {
+      for (let sec = totalSeconds; sec > 0; sec--) {
+        useRateLimitStore.getState().setThrottleCountdown(sec, reason)
+        await new Promise((resolve) => setTimeout(resolve, 1000))
+      }
+    } finally {
+      useRateLimitStore.getState().clearThrottle()
+      activeThrottlePromise = null
+    }
+  })()
+
+  return activeThrottlePromise
+}
+
 export async function cfFetch<T>(
   endpoint: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
+  attempt = 0
 ): Promise<CloudflareApiResponse<T>> {
   const { email, token, authType } = useAuthStore.getState()
 
@@ -50,6 +89,26 @@ export async function cfFetch<T>(
       'Missing Cloudflare authentication credentials. Please log in again.',
       401
     )
+  }
+
+  // Step A: Preemptive check before sending fetch
+  if (activeThrottlePromise) {
+    await activeThrottlePromise
+  }
+
+  const rateLimitState = useRateLimitStore.getState()
+  if (
+    rateLimitState.lastUpdatedAt !== null &&
+    rateLimitState.remaining < PREEMPTIVE_RATE_LIMIT_THRESHOLD
+  ) {
+    const elapsedSeconds = (Date.now() - rateLimitState.lastUpdatedAt) / 1000
+    if (elapsedSeconds < rateLimitState.resetSeconds) {
+      const remainingResetSec =
+        Math.ceil(rateLimitState.resetSeconds - elapsedSeconds) + 1
+      if (remainingResetSec > 0) {
+        await waitForRateLimitReset(remainingResetSec, 'preemptive')
+      }
+    }
   }
 
   const url = normalizeEndpoint(endpoint)
@@ -89,6 +148,24 @@ export async function cfFetch<T>(
 
   // Update rate limit store from response headers on EVERY response
   useRateLimitStore.getState().updateFromHeaders(response.headers)
+
+  // Step B: Automatic retry on HTTP 429 Too Many Requests
+  if (response.status === 429 && attempt < MAX_429_RETRIES) {
+    const retryAfterHeader = response.headers.get('retry-after')
+    const parsedRetryAfter = retryAfterHeader ? Number(retryAfterHeader) : NaN
+    const storeResetSeconds = useRateLimitStore.getState().resetSeconds
+    const fallbackBackoff = Math.pow(2, attempt + 1) * 2
+
+    const waitSec =
+      !Number.isNaN(parsedRetryAfter) && parsedRetryAfter > 0
+        ? parsedRetryAfter
+        : storeResetSeconds > 0
+          ? storeResetSeconds
+          : fallbackBackoff
+
+    await waitForRateLimitReset(waitSec, 'http_429')
+    return cfFetch<T>(endpoint, options, attempt + 1)
+  }
 
   let data: CloudflareApiResponse<T> | null = null
   const contentType = response.headers.get('content-type')
@@ -143,7 +220,8 @@ export async function cfFetch<T>(
  */
 export async function pingRateLimit(): Promise<void> {
   const { token } = useAuthStore.getState()
-  if (!token) return
+  const { isThrottled, remaining } = useRateLimitStore.getState()
+  if (!token || isThrottled || remaining < 15) return
 
   try {
     await cfFetch('accounts?page=1&per_page=1', {

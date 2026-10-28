@@ -284,6 +284,8 @@ export interface TranslationDictionary {
     authTypeKey: string
     menuAria: string
   }
+  rateLimitWaiting: string
+  rateLimitThrottledBadge: string
   rateLimit: {
     badge: string
     apiQuota: string
@@ -291,6 +293,8 @@ export interface TranslationDictionary {
     resetIn: (seconds: number) => string
     tooltipTitle: string
     window5m: string
+    rateLimitWaiting: string
+    rateLimitThrottledBadge: string
   }
   changelog: {
     title: string
@@ -655,6 +659,8 @@ export const translations: Record<'en' | 'pl', TranslationDictionary> = {
       authTypeKey: 'Global Key',
       menuAria: 'User account and preferences menu',
     },
+    rateLimitWaiting: 'Waiting {seconds}s for Cloudflare API rate limit reset...',
+    rateLimitThrottledBadge: 'Throttled ({seconds}s)',
     rateLimit: {
       badge: 'API',
       apiQuota: 'API Quota',
@@ -662,6 +668,8 @@ export const translations: Record<'en' | 'pl', TranslationDictionary> = {
       resetIn: (seconds) => `Reset in: ${seconds}s`,
       tooltipTitle: 'Cloudflare API Rate Limit',
       window5m: '5 min window',
+      rateLimitWaiting: 'Waiting {seconds}s for Cloudflare API rate limit reset...',
+      rateLimitThrottledBadge: 'Throttled ({seconds}s)',
     },
     changelog: {
       title: 'Changelog',
@@ -1063,6 +1071,8 @@ export const translations: Record<'en' | 'pl', TranslationDictionary> = {
       authTypeKey: 'Globalny klucz',
       menuAria: 'Menu konta użytkownika i preferencji',
     },
+    rateLimitWaiting: 'Oczekiwanie {seconds}s na odnowienie limitu API Cloudflare...',
+    rateLimitThrottledBadge: 'Limit API – czekam ({seconds}s)',
     rateLimit: {
       badge: 'API',
       apiQuota: 'Limit API',
@@ -1070,6 +1080,8 @@ export const translations: Record<'en' | 'pl', TranslationDictionary> = {
       resetIn: (seconds) => `Reset za: ${seconds}s`,
       tooltipTitle: 'Limit zapytań Cloudflare API',
       window5m: 'okno 5 min',
+      rateLimitWaiting: 'Oczekiwanie {seconds}s na odnowienie limitu API Cloudflare...',
+      rateLimitThrottledBadge: 'Limit API – czekam ({seconds}s)',
     },
     changelog: {
       title: 'Historia zmian (Changelog)',

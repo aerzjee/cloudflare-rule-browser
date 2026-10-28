@@ -7,6 +7,7 @@ import {
   Ban,
   Building2,
   CheckCircle2,
+  Clock,
   Cpu,
   Globe,
   Loader2,
@@ -30,6 +31,7 @@ import {
 import { useAuthStore } from '../../store/useAuthStore'
 import { useSettingsStore } from '../../store/useSettingsStore'
 import { useHighlightStore } from '../../store/useHighlightStore'
+import { useRateLimitStore } from '../../store/useRateLimitStore'
 import { useAvailableScopes } from '../../hooks/useAvailableScopes'
 import { setCachedRules } from '../../utils/rulesCache'
 import { useTranslation } from '../../i18n/useTranslation'
@@ -121,6 +123,8 @@ export const AddRuleModal: React.FC<AddRuleModalProps> = ({
   }, [scopes, effectiveScopeId])
 
   // Submission & progress state
+  const isThrottled = useRateLimitStore((s) => s.isThrottled)
+  const throttleRemainingSeconds = useRateLimitStore((s) => s.throttleRemainingSeconds)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [progress, setProgress] = useState<{ completed: number; total: number }>({
     completed: 0,
@@ -568,22 +572,42 @@ export const AddRuleModal: React.FC<AddRuleModalProps> = ({
                   <div className="space-y-1.5 pt-2">
                     <div className="flex items-center justify-between text-xs text-slate-600 dark:text-slate-400">
                       <span className="flex items-center gap-1.5 font-medium">
-                        <Loader2 className="w-3.5 h-3.5 animate-spin text-[#f6821f]" />
+                        {isThrottled ? (
+                          <Clock className="w-3.5 h-3.5 text-amber-500 animate-pulse" />
+                        ) : (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin text-[#f6821f]" />
+                        )}
                         {t.addRuleModal.progressText(
                           progress.completed,
                           progress.total,
                           Math.round((progress.completed / progress.total) * 100)
                         )}
                       </span>
+                      {isThrottled && (
+                        <span className="font-mono text-[11px] font-bold text-amber-500 animate-pulse">
+                          {throttleRemainingSeconds}s
+                        </span>
+                      )}
                     </div>
                     <div className="w-full h-2 rounded-full bg-slate-200/80 dark:bg-slate-800 overflow-hidden">
                       <div
-                        className="h-full bg-linear-to-r from-orange-500 to-amber-500 transition-all duration-300"
+                        className={cn(
+                          'h-full transition-all duration-300',
+                          isThrottled
+                            ? 'bg-gradient-to-r from-amber-500 to-yellow-500 animate-pulse'
+                            : 'bg-linear-to-r from-orange-500 to-amber-500'
+                        )}
                         style={{
                           width: `${Math.round((progress.completed / progress.total) * 100)}%`,
                         }}
                       />
                     </div>
+                    {isThrottled && (
+                      <div className="flex items-center justify-center gap-1.5 p-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-400 text-xs font-semibold animate-pulse mt-1">
+                        <Clock className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                        <span>{t.rateLimitWaiting.replace('{seconds}', String(throttleRemainingSeconds))}</span>
+                      </div>
+                    )}
                   </div>
                 )}
 
