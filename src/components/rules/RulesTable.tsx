@@ -46,6 +46,7 @@ import { GlassInput } from '../ui/GlassInput'
 import { InlineModeDropdown } from './InlineModeDropdown'
 import { InlineNoteEditor } from './InlineNoteEditor'
 import { AddRuleModal } from './AddRuleModal'
+import { isIpAddress, isIpInCidr } from '../../utils/cidrMatcher'
 import { cn } from '../../lib/utils'
 
 export interface RulesTableProps {
@@ -218,6 +219,8 @@ export const RulesTable: React.FC<RulesTableProps> = ({
     { id: 'created_on', desc: true },
   ])
   const [globalFilter, setGlobalFilter] = useState('')
+  const trimmedFilter = globalFilter.trim()
+  const isSearchIp = useMemo(() => isIpAddress(trimmedFilter), [trimmedFilter])
   const [modeFilter, setModeFilter] = useState('all')
   const [scopeFilter, setScopeFilter] = useState<'all' | 'account' | 'zone'>('all')
   const [pagination, setPagination] = useState<PaginationState>({
@@ -385,6 +388,15 @@ export const RulesTable: React.FC<RulesTableProps> = ({
         },
         cell: ({ row }) => {
           const { target, value } = row.original
+
+          // Check if this row was matched via CIDR subnet containment
+          const isCidrMatch =
+            Boolean(trimmedFilter) &&
+            isSearchIp &&
+            target === 'ip_range' &&
+            !value.toLowerCase().includes(trimmedFilter.toLowerCase()) &&
+            isIpInCidr(trimmedFilter, value)
+
           return (
             <div className="flex items-center gap-2">
               <span
@@ -398,6 +410,16 @@ export const RulesTable: React.FC<RulesTableProps> = ({
               <span className="font-mono text-sm font-semibold text-slate-900 dark:text-slate-100 select-all truncate">
                 {value}
               </span>
+
+              {isCidrMatch && (
+                <span
+                  title={t.table.cidrMatchTooltip}
+                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-semibold bg-cyan-500/15 text-cyan-600 dark:text-cyan-400 border border-cyan-500/30 shrink-0"
+                >
+                  <Network className="w-3 h-3 text-cyan-500" />
+                  {t.table.cidrMatch}
+                </span>
+              )}
 
               <CopyButton
                 value={value}
@@ -516,7 +538,7 @@ export const RulesTable: React.FC<RulesTableProps> = ({
         size: 50,
       },
     ],
-    [onDeleteRule, language, t]
+    [onDeleteRule, language, t, trimmedFilter, isSearchIp]
   )
 
   // Filtered dataset for Mode and Scope filters
@@ -537,7 +559,7 @@ export const RulesTable: React.FC<RulesTableProps> = ({
     })
   }, [data, modeFilter, scopeFilter])
 
-  // Custom global search filter matching IP, target, domain/zone, or notes
+  // Custom global search filter matching IP, target, domain/zone, notes, or CIDR subnet containment
   const globalFilterFn = (
     row: { original: NormalizedAccessRule },
     _columnId: string,
@@ -551,13 +573,24 @@ export const RulesTable: React.FC<RulesTableProps> = ({
     const zone = (rule.zoneName || rule.zoneId || '').toLowerCase()
     const notes = (rule.notes || '').toLowerCase()
     const mode = (rule.mode || '').toLowerCase()
-    return (
+
+    // 1. Literal text search
+    if (
       val.includes(q) ||
       target.includes(q) ||
       zone.includes(q) ||
       notes.includes(q) ||
       mode.includes(q)
-    )
+    ) {
+      return true
+    }
+
+    // 2. Intelligent CIDR subnet containment search
+    if (isSearchIp && rule.target === 'ip_range') {
+      return isIpInCidr(trimmedFilter, rule.value)
+    }
+
+    return false
   }
 
   // TanStack Table Instance

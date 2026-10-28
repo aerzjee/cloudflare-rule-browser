@@ -1,24 +1,152 @@
-import React from 'react'
+import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { CheckSquare, Trash2, X } from 'lucide-react'
+import { CheckSquare, ChevronUp, Shield, Trash2, X } from 'lucide-react'
+import { useQueryClient } from '@tanstack/react-query'
+import type {
+  CloudflareAccessRuleMode,
+  NormalizedAccessRule,
+} from '../../types/cloudflare'
+import {
+  bulkUpdateAccessRulesMode,
+  getRuleUniqueKey,
+} from '../../api/accessRules'
+import { useAuthStore } from '../../store/useAuthStore'
+import { useSettingsStore } from '../../store/useSettingsStore'
+import { useHighlightStore } from '../../store/useHighlightStore'
+import { setCachedRules } from '../../utils/rulesCache'
 import { useTranslation } from '../../i18n/useTranslation'
 import { GlassButton } from '../ui/GlassButton'
 import { cn } from '../../lib/utils'
 
 export interface BulkActionBarProps {
   selectedCount: number
+  selectedRules?: NormalizedAccessRule[]
   onClearSelection: () => void
   onDeleteSelected: () => void
   className?: string
 }
 
+interface ModeOption {
+  mode: CloudflareAccessRuleMode
+  dotClass: string
+}
+
+const MODE_OPTIONS: ModeOption[] = [
+  { mode: 'block', dotClass: 'bg-rose-500' },
+  { mode: 'managed_challenge', dotClass: 'bg-amber-500' },
+  { mode: 'js_challenge', dotClass: 'bg-orange-500' },
+  { mode: 'challenge', dotClass: 'bg-yellow-500' },
+  { mode: 'whitelist', dotClass: 'bg-emerald-500' },
+]
+
 export const BulkActionBar: React.FC<BulkActionBarProps> = ({
   selectedCount,
+  selectedRules = [],
   onClearSelection,
   onDeleteSelected,
   className,
 }) => {
   const { t } = useTranslation()
+  const queryClient = useQueryClient()
+  const accountLevelOnly = useAuthStore((s) => s.accountLevelOnly)
+  const concurrency = useSettingsStore((s) => s.concurrency)
+
+  const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const [isUpdating, setIsUpdating] = useState(false)
+  const [progress, setProgress] = useState<{ current: number; total: number }>({
+    current: 0,
+    total: 0,
+  })
+
+  const menuRef = useRef<HTMLDivElement>(null)
+
+  // Close dropdown on outside click or Escape key
+  const closeMenu = useCallback(() => {
+    setIsMenuOpen(false)
+  }, [])
+
+  useEffect(() => {
+    if (!isMenuOpen) return
+
+    const handleClickOutside = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        closeMenu()
+      }
+    }
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        closeMenu()
+      }
+    }
+
+    window.addEventListener('mousedown', handleClickOutside)
+    window.addEventListener('keydown', handleKeyDown)
+    return () => {
+      window.removeEventListener('mousedown', handleClickOutside)
+      window.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [isMenuOpen, closeMenu])
+
+  // Handle mode selection and execute bulk update
+  const handleModeSelect = async (newMode: CloudflareAccessRuleMode) => {
+    if (selectedRules.length === 0 || isUpdating) return
+
+    closeMenu()
+
+    const toUpdate = selectedRules.filter((r) => r.mode !== newMode)
+    if (toUpdate.length === 0) {
+      // All selected rules already have this mode
+      return
+    }
+
+    setIsUpdating(true)
+    setProgress({ current: 0, total: toUpdate.length })
+
+    try {
+      const result = await bulkUpdateAccessRulesMode(
+        selectedRules,
+        newMode,
+        concurrency,
+        (current, total) => {
+          setProgress({ current, total })
+        }
+      )
+
+      if (result.updatedRules.length > 0) {
+        const updatedMap = new Map<string, NormalizedAccessRule>()
+        for (const r of result.updatedRules) {
+          updatedMap.set(getRuleUniqueKey(r), r)
+        }
+
+        // 1. Update React Query cache locally without table refetch
+        queryClient.setQueriesData<NormalizedAccessRule[]>(
+          { queryKey: ['cloudflare', 'access_rules'] },
+          (old) => {
+            if (!old) return []
+            const next = old.map((r) => updatedMap.get(getRuleUniqueKey(r)) || r)
+            // 2. Persist updated rules to IndexedDB in background
+            setCachedRules(accountLevelOnly, next).catch((err) =>
+              console.warn('[BulkActionBar] Error updating IndexedDB:', err)
+            )
+            return next
+          }
+        )
+
+        // 3. Highlight updated rules with success blink
+        const updatedKeys = result.updatedRules.map(getRuleUniqueKey)
+        useHighlightStore.getState().highlightNewRules(updatedKeys)
+
+        // 4. Clear row selection
+        onClearSelection()
+      }
+    } catch (err) {
+      console.error('[BulkActionBar] Error updating rule mode:', err)
+    } finally {
+      setIsUpdating(false)
+      setProgress({ current: 0, total: 0 })
+    }
+  }
 
   return (
     <AnimatePresence>
@@ -32,12 +160,12 @@ export const BulkActionBar: React.FC<BulkActionBarProps> = ({
           transition={{ type: 'spring', stiffness: 400, damping: 30 }}
           className={cn(
             'fixed bottom-6 left-1/2 z-40',
-            'w-[calc(100%-2rem)] sm:w-auto max-w-xl',
+            'w-[calc(100%-2rem)] sm:w-auto max-w-2xl',
             'backdrop-blur-2xl bg-white/90 dark:bg-slate-900/90',
             'border border-white/60 dark:border-white/15',
             'shadow-2xl shadow-orange-500/10 dark:shadow-black/40',
             'rounded-2xl px-4 sm:px-6 py-3',
-            'flex items-center justify-between sm:justify-start gap-3 sm:gap-5',
+            'flex items-center justify-between sm:justify-start gap-3 sm:gap-4',
             className
           )}
         >
@@ -60,18 +188,82 @@ export const BulkActionBar: React.FC<BulkActionBarProps> = ({
 
           {/* Action buttons */}
           <div className="flex items-center gap-2 shrink-0">
+            {/* Deselect button */}
             <GlassButton
               variant="ghost"
               size="sm"
+              disabled={isUpdating}
               onClick={onClearSelection}
               leftIcon={<X className="w-3.5 h-3.5" />}
             >
               <span>{t.bulk.deselect}</span>
             </GlassButton>
 
+            {/* Change Mode Dropdown Button */}
+            <div className="relative" ref={menuRef}>
+              <GlassButton
+                variant="glass"
+                size="sm"
+                disabled={isUpdating}
+                isLoading={isUpdating}
+                onClick={() => setIsMenuOpen((prev) => !prev)}
+                leftIcon={
+                  !isUpdating && <Shield className="w-3.5 h-3.5 text-[#f6821f]" />
+                }
+                rightIcon={
+                  !isUpdating && (
+                    <ChevronUp
+                      className={cn(
+                        'w-3.5 h-3.5 transition-transform duration-200',
+                        isMenuOpen && 'rotate-180'
+                      )}
+                    />
+                  )
+                }
+              >
+                <span>
+                  {isUpdating
+                    ? t.bulk.updatingRules(progress.current, progress.total)
+                    : t.bulk.changeMode}
+                </span>
+              </GlassButton>
+
+              {/* Mode Selection Popover expanding upwards */}
+              <AnimatePresence>
+                {isMenuOpen && !isUpdating && (
+                  <motion.div
+                    role="menu"
+                    aria-label={t.bulk.changeMode}
+                    initial={{ opacity: 0, scale: 0.95, y: 8 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95, y: 8 }}
+                    transition={{ duration: 0.15, ease: 'easeOut' }}
+                    className="absolute bottom-full mb-2.5 right-0 sm:right-auto sm:left-0 z-50 min-w-[210px] p-1.5 rounded-2xl backdrop-blur-2xl bg-white/95 dark:bg-slate-900/95 border border-white/60 dark:border-white/15 shadow-2xl shadow-black/25 flex flex-col space-y-0.5"
+                  >
+                    {MODE_OPTIONS.map((item) => (
+                      <button
+                        key={item.mode}
+                        type="button"
+                        role="menuitem"
+                        onClick={() => handleModeSelect(item.mode)}
+                        className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors cursor-pointer w-full text-left"
+                      >
+                        <span
+                          className={cn('w-2.5 h-2.5 rounded-full shrink-0', item.dotClass)}
+                        />
+                        <span>{t.modeDropdown.modes[item.mode].label}</span>
+                      </button>
+                    ))}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            {/* Delete button */}
             <GlassButton
               variant="danger"
               size="sm"
+              disabled={isUpdating}
               onClick={onDeleteSelected}
               leftIcon={<Trash2 className="w-4 h-4" />}
               className="shadow-md shadow-red-500/20"

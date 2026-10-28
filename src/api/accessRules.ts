@@ -1188,3 +1188,99 @@ export async function fetchZonesList(): Promise<CloudflareZone[]> {
   return res.result || []
 }
 
+export interface BulkUpdateModeResult {
+  updatedRules: NormalizedAccessRule[]
+  skippedRules: NormalizedAccessRule[]
+  errors: Array<{ rule: NormalizedAccessRule; message: string }>
+}
+
+/**
+ * Concurrently updates the action mode for multiple access rules.
+ * Skips rules that already have the desired mode.
+ * Enforces setIsMutatingRules and schedules next auto-refresh in finally block.
+ */
+export async function bulkUpdateAccessRulesMode(
+  rules: NormalizedAccessRule[],
+  newMode: CloudflareAccessRuleMode,
+  concurrency?: number,
+  onProgress?: (completed: number, total: number) => void
+): Promise<BulkUpdateModeResult> {
+  const effectiveConcurrency =
+    concurrency ?? useSettingsStore.getState().concurrency ?? 2
+  const limit = pLimit(effectiveConcurrency)
+
+  // Skip rules that already match the target mode
+  const rulesToUpdate = rules.filter((r) => r.mode !== newMode)
+  const skippedRules = rules.filter((r) => r.mode === newMode)
+
+  const total = rulesToUpdate.length
+  let completed = 0
+
+  useSettingsStore.getState().setIsMutatingRules(true)
+  onProgress?.(0, total)
+
+  try {
+    if (total === 0) {
+      return {
+        updatedRules: [],
+        skippedRules,
+        errors: [],
+      }
+    }
+
+    const tasks = rulesToUpdate.map((rule) =>
+      limit(async () => {
+        try {
+          const updated = await updateAccessRule(rule, {
+            mode: newMode,
+            notes: rule.notes,
+          })
+          return { success: true as const, rule: updated, original: rule }
+        } catch (err) {
+          return {
+            success: false as const,
+            original: rule,
+            message:
+              err instanceof Error ? err.message : 'Failed to update rule mode',
+          }
+        } finally {
+          completed++
+          onProgress?.(completed, total)
+        }
+      })
+    )
+
+    const outcomes = await Promise.allSettled(tasks)
+
+    const updatedRules: NormalizedAccessRule[] = []
+    const errors: Array<{ rule: NormalizedAccessRule; message: string }> = []
+
+    for (const outcome of outcomes) {
+      if (outcome.status === 'fulfilled') {
+        if (outcome.value.success) {
+          updatedRules.push(outcome.value.rule)
+        } else {
+          errors.push({
+            rule: outcome.value.original,
+            message: outcome.value.message,
+          })
+        }
+      } else {
+        errors.push({
+          rule: rulesToUpdate[0],
+          message:
+            outcome.reason instanceof Error
+              ? outcome.reason.message
+              : String(outcome.reason),
+        })
+      }
+    }
+
+    return { updatedRules, skippedRules, errors }
+  } finally {
+    useSettingsStore.getState().setIsMutatingRules(false)
+    useSettingsStore.getState().scheduleNextRefresh()
+  }
+}
+
+

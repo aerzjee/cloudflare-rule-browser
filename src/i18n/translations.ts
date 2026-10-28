@@ -128,6 +128,8 @@ export interface TranslationDictionary {
     deleteRule: string
     copyValue: string
     addRule: string
+    cidrMatch: string
+    cidrMatchTooltip: string
   }
   noteEditor: {
     placeholder: string
@@ -156,6 +158,11 @@ export interface TranslationDictionary {
     ruleSelected: (count: number) => string
     deselect: string
     delete: (count: number) => string
+    changeMode: string
+    updatingRules: (current: number, total: number) => string
+    updateSuccess: (count: number) => string
+    updatePartial: (success: number, failed: number) => string
+    noChangesNeeded: string
   }
   deleteModal: {
     titleSingle: string
@@ -437,6 +444,8 @@ export const translations: Record<'en' | 'pl', TranslationDictionary> = {
       deleteRule: 'Delete rule',
       copyValue: 'Copy value',
       addRule: '+ Add Rule',
+      cidrMatch: 'CIDR Match',
+      cidrMatchTooltip: 'Included in CIDR subnet',
     },
     noteEditor: {
       placeholder: 'Enter note (max 500 chars)...',
@@ -480,6 +489,12 @@ export const translations: Record<'en' | 'pl', TranslationDictionary> = {
       ruleSelected: (count) => (count === 1 ? 'rule selected' : 'rules selected'),
       deselect: 'Deselect',
       delete: (count) => `Delete (${count})`,
+      changeMode: 'Change Mode',
+      updatingRules: (current, total) => `Updating (${current}/${total})...`,
+      updateSuccess: (count) =>
+        `Updated mode for ${count} ${count === 1 ? 'rule' : 'rules'}`,
+      updatePartial: (success, failed) => `Updated ${success}, ${failed} failed`,
+      noChangesNeeded: 'Selected rules already have this mode',
     },
     deleteModal: {
       titleSingle: 'Delete access rule',
@@ -782,6 +797,8 @@ export const translations: Record<'en' | 'pl', TranslationDictionary> = {
       deleteRule: 'Usuń regułę',
       copyValue: 'Kopiuj wartość',
       addRule: '+ Dodaj regułę',
+      cidrMatch: 'W podsieci CIDR',
+      cidrMatchTooltip: 'Zawiera się w podsieci CIDR',
     },
     noteEditor: {
       placeholder: 'Wpisz notatkę (max 500 znaków)...',
@@ -830,6 +847,17 @@ export const translations: Record<'en' | 'pl', TranslationDictionary> = {
           : 'zaznaczonych reguł',
       deselect: 'Odznacz',
       delete: (count) => `Usuń (${count})`,
+      changeMode: 'Zmień tryb',
+      updatingRules: (current, total) => `Aktualizacja (${current}/${total})...`,
+      updateSuccess: (count) =>
+        count === 1
+          ? 'Zaktualizowano tryb dla 1 reguły'
+          : count < 5
+          ? `Zaktualizowano tryb dla ${count} reguł`
+          : `Zaktualizowano tryb dla ${count} reguł`,
+      updatePartial: (success, failed) =>
+        `Zaktualizowano ${success}, błąd dla ${failed}`,
+      noChangesNeeded: 'Zaznaczone reguły mają już ten tryb',
     },
     deleteModal: {
       titleSingle: 'Usuń regułę dostępu',

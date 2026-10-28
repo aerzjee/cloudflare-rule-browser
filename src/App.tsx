@@ -307,6 +307,7 @@ function Dashboard() {
       {/* 3. Floating BulkActionBar visible when >= 1 rule is selected */}
       <BulkActionBar
         selectedCount={selectedRules.length}
+        selectedRules={selectedRules}
         onClearSelection={handleClearSelection}
         onDeleteSelected={() => handleDeleteBulk()}
       />

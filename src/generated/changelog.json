@@ -1,8 +1,23 @@
 {
   "latestVersion": "1.2.2",
   "latestCommit": "65b598c",
-  "generatedAt": "2026-10-28T12:36:55.627Z",
+  "generatedAt": "2026-10-28T13:02:15.340Z",
   "releases": [
+    {
+      "version": "Unreleased / Next",
+      "tag": "HEAD",
+      "commit": "dd380ce",
+      "date": "2026-10-28",
+      "changes": [
+        {
+          "hash": "dd380ce",
+          "date": "2026-10-28",
+          "type": "feat",
+          "scope": "rules",
+          "message": "add single and bulk IP access rule creation modal with automatic target detection"
+        }
+      ]
+    },
     {
       "version": "1.2.2",
       "tag": "v1.2.2",
