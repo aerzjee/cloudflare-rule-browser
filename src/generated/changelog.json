@@ -1,14 +1,21 @@
 {
   "latestVersion": "1.2.2",
   "latestCommit": "65b598c",
-  "generatedAt": "2026-10-28T13:10:59.744Z",
+  "generatedAt": "2026-10-28T13:23:40.152Z",
   "releases": [
     {
       "version": "Unreleased / Next",
       "tag": "HEAD",
-      "commit": "d3edb2a",
+      "commit": "18e1f95",
       "date": "2026-10-28",
       "changes": [
+        {
+          "hash": "18e1f95",
+          "date": "2026-10-28",
+          "type": "feat",
+          "scope": "rules",
+          "message": "add CSV/JSON rule export and IndexedDB local trash with one-click rule restore"
+        },
         {
           "hash": "d3edb2a",
           "date": "2026-10-28",

@@ -37,7 +37,6 @@ import {
   Minus,
   Network,
   Plus,
-  RefreshCw,
   Search,
   Server,
   Trash2,
@@ -200,8 +199,6 @@ function getTargetIcon(target: string) {
 export const RulesTable: React.FC<RulesTableProps> = ({
   data,
   isLoading = false,
-  isFetching = false,
-  onRefetch,
   onDeleteRule,
   onDeleteSelected,
   onAddRule,
@@ -788,33 +785,6 @@ export const RulesTable: React.FC<RulesTableProps> = ({
               </GlassButton>
             )}
 
-            {/* Refresh button */}
-            {onRefetch && (
-              <GlassButton
-                variant="glass"
-                size="md"
-                onClick={onRefetch}
-                disabled={isFetching}
-                leftIcon={
-                  <RefreshCw
-                    className={cn('w-4 h-4', isFetching && 'animate-spin text-[#f6821f]')}
-                  />
-                }
-              >
-                {t.common.refresh}
-              </GlassButton>
-            )}
-
-            {/* Add Rule button */}
-            <GlassButton
-              variant="primary"
-              size="md"
-              onClick={handleOpenAddModal}
-              leftIcon={<Plus className="w-4 h-4" />}
-            >
-              {t.table.addRule}
-            </GlassButton>
-
             {/* Export Dropdown Button */}
             <div className="relative" ref={exportMenuRef}>
               <GlassButton
@@ -892,6 +862,16 @@ export const RulesTable: React.FC<RulesTableProps> = ({
                   {trashCount}
                 </span>
               )}
+            </GlassButton>
+
+            {/* Add Rule button */}
+            <GlassButton
+              variant="primary"
+              size="md"
+              onClick={handleOpenAddModal}
+              leftIcon={<Plus className="w-4 h-4" />}
+            >
+              {t.table.addRule}
             </GlassButton>
           </div>
         </div>
