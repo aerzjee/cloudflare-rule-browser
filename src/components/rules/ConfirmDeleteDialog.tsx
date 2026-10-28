@@ -22,6 +22,7 @@ import {
 import { useAuthStore } from '../../store/useAuthStore'
 import { useSettingsStore } from '../../store/useSettingsStore'
 import { useHighlightStore } from '../../store/useHighlightStore'
+import { useTrashStore } from '../../store/useTrashStore'
 import { setCachedRules } from '../../utils/rulesCache'
 import { useTranslation } from '../../i18n/useTranslation'
 import { GlassButton } from '../ui/GlassButton'
@@ -88,6 +89,8 @@ export const ConfirmDeleteDialog: React.FC<ConfirmDeleteDialogProps> = ({
         )
 
         useHighlightStore.getState().clearRemovingRules(deletedKeys)
+        // Record deleted rules in local trash for quick recovery
+        void useTrashStore.getState().addRulesToTrash(deleteResult.successful)
         onSuccess?.(deleteResult.successful)
       }
 

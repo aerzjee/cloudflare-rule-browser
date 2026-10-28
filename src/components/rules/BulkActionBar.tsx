@@ -1,6 +1,15 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { CheckSquare, ChevronUp, Shield, Trash2, X } from 'lucide-react'
+import {
+  CheckSquare,
+  ChevronUp,
+  Download,
+  FileJson,
+  FileSpreadsheet,
+  Shield,
+  Trash2,
+  X,
+} from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
 import type {
   CloudflareAccessRuleMode,
@@ -10,6 +19,7 @@ import {
   bulkUpdateAccessRulesMode,
   getRuleUniqueKey,
 } from '../../api/accessRules'
+import { exportRulesToCsv, exportRulesToJson } from '../../utils/exportRules'
 import { useAuthStore } from '../../store/useAuthStore'
 import { useSettingsStore } from '../../store/useSettingsStore'
 import { useHighlightStore } from '../../store/useHighlightStore'
@@ -52,6 +62,7 @@ export const BulkActionBar: React.FC<BulkActionBarProps> = ({
   const concurrency = useSettingsStore((s) => s.concurrency)
 
   const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const [isExportOpen, setIsExportOpen] = useState(false)
   const [isUpdating, setIsUpdating] = useState(false)
   const [progress, setProgress] = useState<{ current: number; total: number }>({
     current: 0,
@@ -59,24 +70,30 @@ export const BulkActionBar: React.FC<BulkActionBarProps> = ({
   })
 
   const menuRef = useRef<HTMLDivElement>(null)
+  const exportRef = useRef<HTMLDivElement>(null)
 
-  // Close dropdown on outside click or Escape key
-  const closeMenu = useCallback(() => {
+  // Close dropdowns on outside click or Escape key
+  const closeDropdowns = useCallback(() => {
     setIsMenuOpen(false)
+    setIsExportOpen(false)
   }, [])
 
   useEffect(() => {
-    if (!isMenuOpen) return
+    if (!isMenuOpen && !isExportOpen) return
 
     const handleClickOutside = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        closeMenu()
+      const target = e.target as Node
+      if (menuRef.current && !menuRef.current.contains(target)) {
+        setIsMenuOpen(false)
+      }
+      if (exportRef.current && !exportRef.current.contains(target)) {
+        setIsExportOpen(false)
       }
     }
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        closeMenu()
+        closeDropdowns()
       }
     }
 
@@ -86,13 +103,13 @@ export const BulkActionBar: React.FC<BulkActionBarProps> = ({
       window.removeEventListener('mousedown', handleClickOutside)
       window.removeEventListener('keydown', handleKeyDown)
     }
-  }, [isMenuOpen, closeMenu])
+  }, [isMenuOpen, isExportOpen, closeDropdowns])
 
   // Handle mode selection and execute bulk update
   const handleModeSelect = async (newMode: CloudflareAccessRuleMode) => {
     if (selectedRules.length === 0 || isUpdating) return
 
-    closeMenu()
+    closeDropdowns()
 
     const toUpdate = selectedRules.filter((r) => r.mode !== newMode)
     if (toUpdate.length === 0) {
@@ -254,6 +271,66 @@ export const BulkActionBar: React.FC<BulkActionBarProps> = ({
                         <span>{t.modeDropdown.modes[item.mode].label}</span>
                       </button>
                     ))}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            {/* Export Selected Button */}
+            <div className="relative" ref={exportRef}>
+              <GlassButton
+                variant="glass"
+                size="sm"
+                disabled={isUpdating}
+                onClick={() => setIsExportOpen((prev) => !prev)}
+                leftIcon={<Download className="w-3.5 h-3.5 text-blue-500" />}
+                rightIcon={
+                  <ChevronUp
+                    className={cn(
+                      'w-3.5 h-3.5 transition-transform duration-200',
+                      isExportOpen && 'rotate-180'
+                    )}
+                  />
+                }
+              >
+                <span>{t.table.export}</span>
+              </GlassButton>
+
+              <AnimatePresence>
+                {isExportOpen && !isUpdating && (
+                  <motion.div
+                    role="menu"
+                    aria-label={t.table.export}
+                    initial={{ opacity: 0, scale: 0.95, y: 8 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95, y: 8 }}
+                    transition={{ duration: 0.15, ease: 'easeOut' }}
+                    className="absolute bottom-full mb-2.5 right-0 sm:right-auto sm:left-0 z-50 min-w-[170px] p-1.5 rounded-2xl backdrop-blur-2xl bg-white/95 dark:bg-slate-900/95 border border-white/60 dark:border-white/15 shadow-2xl shadow-black/25 flex flex-col space-y-0.5"
+                  >
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        setIsExportOpen(false)
+                        exportRulesToCsv(selectedRules)
+                      }}
+                      className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors cursor-pointer w-full text-left"
+                    >
+                      <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                      <span>{t.table.exportCsv}</span>
+                    </button>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        setIsExportOpen(false)
+                        exportRulesToJson(selectedRules)
+                      }}
+                      className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors cursor-pointer w-full text-left"
+                    >
+                      <FileJson className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                      <span>{t.table.exportJson}</span>
+                    </button>
                   </motion.div>
                 )}
               </AnimatePresence>

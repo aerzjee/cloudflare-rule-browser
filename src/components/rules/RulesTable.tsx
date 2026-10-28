@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useRef, useEffect } from 'react'
+import { AnimatePresence, motion } from 'motion/react'
 import { useAutoAnimate } from '@formkit/auto-animate/react'
 import {
   type ColumnDef,
@@ -14,17 +15,22 @@ import {
   useReactTable,
 } from '@tanstack/react-table'
 import {
+  ArchiveRestore,
   ArrowDown,
   ArrowUp,
   ArrowUpDown,
   Building2,
   Calendar,
   Check,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
   Copy,
+  Download,
+  FileJson,
+  FileSpreadsheet,
   Filter,
   Globe,
   Laptop,
@@ -40,12 +46,15 @@ import {
 import type { NormalizedAccessRule } from '../../types/cloudflare'
 import { useTranslation } from '../../i18n/useTranslation'
 import { useHighlightStore } from '../../store/useHighlightStore'
+import { useTrashStore } from '../../store/useTrashStore'
+import { exportRulesToCsv, exportRulesToJson } from '../../utils/exportRules'
 import { GlassButton } from '../ui/GlassButton'
 import { GlassCard } from '../ui/GlassCard'
 import { GlassInput } from '../ui/GlassInput'
 import { InlineModeDropdown } from './InlineModeDropdown'
 import { InlineNoteEditor } from './InlineNoteEditor'
 import { AddRuleModal } from './AddRuleModal'
+import { TrashModal } from './TrashModal'
 import { isIpAddress, isIpInCidr } from '../../utils/cidrMatcher'
 import { cn } from '../../lib/utils'
 
@@ -209,6 +218,42 @@ export const RulesTable: React.FC<RulesTableProps> = ({
   // Add rule modal state
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
   const handleOpenAddModal = onAddRule ?? (() => setIsAddModalOpen(true))
+
+  // Trash modal state & count
+  const trashRules = useTrashStore((s) => s.trashRules)
+  const trashCount = trashRules.length
+  const [isTrashModalOpen, setIsTrashModalOpen] = useState(false)
+
+  // Export menu dropdown state
+  const [isExportMenuOpen, setIsExportMenuOpen] = useState(false)
+  const exportMenuRef = useRef<HTMLDivElement>(null)
+
+  // Close export dropdown on click outside or Escape
+  useEffect(() => {
+    if (!isExportMenuOpen) return
+
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        exportMenuRef.current &&
+        !exportMenuRef.current.contains(e.target as Node)
+      ) {
+        setIsExportMenuOpen(false)
+      }
+    }
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsExportMenuOpen(false)
+      }
+    }
+
+    window.addEventListener('mousedown', handleClickOutside)
+    window.addEventListener('keydown', handleKeyDown)
+    return () => {
+      window.removeEventListener('mousedown', handleClickOutside)
+      window.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [isExportMenuOpen])
 
   // Local table state
   const [internalRowSelection, setInternalRowSelection] = useState<RowSelectionState>({})
@@ -650,6 +695,14 @@ export const RulesTable: React.FC<RulesTableProps> = ({
     onDeleteSelected(selectedRules)
   }
 
+  // Rules to export (either selected rules or all currently filtered rules)
+  const rulesToExport = useMemo(() => {
+    if (selectedCount > 0) {
+      return selectedRowModel.rows.map((r) => r.original)
+    }
+    return table.getFilteredRowModel().rows.map((r) => r.original)
+  }, [selectedCount, selectedRowModel.rows, table])
+
   return (
     <div className={cn('space-y-4 w-full', className)}>
       {/* 3. Glass toolbar above rules table */}
@@ -760,6 +813,85 @@ export const RulesTable: React.FC<RulesTableProps> = ({
               leftIcon={<Plus className="w-4 h-4" />}
             >
               {t.table.addRule}
+            </GlassButton>
+
+            {/* Export Dropdown Button */}
+            <div className="relative" ref={exportMenuRef}>
+              <GlassButton
+                variant="glass"
+                size="md"
+                onClick={() => setIsExportMenuOpen((prev) => !prev)}
+                leftIcon={<Download className="w-4 h-4 text-blue-500" />}
+                rightIcon={
+                  <ChevronDown
+                    className={cn(
+                      'w-3.5 h-3.5 transition-transform duration-200',
+                      isExportMenuOpen && 'rotate-180'
+                    )}
+                  />
+                }
+              >
+                <span>
+                  {selectedCount > 0
+                    ? t.table.exportSelected(selectedCount)
+                    : t.table.export}
+                </span>
+              </GlassButton>
+
+              <AnimatePresence>
+                {isExportMenuOpen && (
+                  <motion.div
+                    role="menu"
+                    aria-label={t.table.export}
+                    initial={{ opacity: 0, scale: 0.95, y: -8 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95, y: -8 }}
+                    transition={{ duration: 0.15, ease: 'easeOut' }}
+                    className="absolute top-full mt-2 right-0 sm:left-0 sm:right-auto z-40 min-w-[170px] p-1.5 rounded-2xl backdrop-blur-2xl bg-white/95 dark:bg-slate-900/95 border border-white/60 dark:border-white/15 shadow-2xl shadow-black/20 flex flex-col space-y-1"
+                  >
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        setIsExportMenuOpen(false)
+                        exportRulesToCsv(rulesToExport)
+                      }}
+                      className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors cursor-pointer w-full text-left"
+                    >
+                      <FileSpreadsheet className="w-4 h-4 text-emerald-500 shrink-0" />
+                      <span>{t.table.exportCsv}</span>
+                    </button>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        setIsExportMenuOpen(false)
+                        exportRulesToJson(rulesToExport)
+                      }}
+                      className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors cursor-pointer w-full text-left"
+                    >
+                      <FileJson className="w-4 h-4 text-amber-500 shrink-0" />
+                      <span>{t.table.exportJson}</span>
+                    </button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            {/* Trash / Recently Deleted Button */}
+            <GlassButton
+              variant="glass"
+              size="md"
+              onClick={() => setIsTrashModalOpen(true)}
+              title={t.table.trashTooltip(trashCount)}
+              leftIcon={<ArchiveRestore className="w-4 h-4 text-orange-500" />}
+            >
+              <span>{t.table.trash}</span>
+              {trashCount > 0 && (
+                <span className="ml-1 px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-orange-500/20 text-[#f6821f] border border-orange-500/30">
+                  {trashCount}
+                </span>
+              )}
             </GlassButton>
           </div>
         </div>
@@ -981,6 +1113,12 @@ export const RulesTable: React.FC<RulesTableProps> = ({
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
         rules={data}
+      />
+
+      {/* Trash / Recently Deleted Modal */}
+      <TrashModal
+        isOpen={isTrashModalOpen}
+        onClose={() => setIsTrashModalOpen(false)}
       />
     </div>
   )

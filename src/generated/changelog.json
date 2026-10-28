@@ -1,14 +1,21 @@
 {
   "latestVersion": "1.2.2",
   "latestCommit": "65b598c",
-  "generatedAt": "2026-10-28T13:02:15.340Z",
+  "generatedAt": "2026-10-28T13:10:59.744Z",
   "releases": [
     {
       "version": "Unreleased / Next",
       "tag": "HEAD",
-      "commit": "dd380ce",
+      "commit": "d3edb2a",
       "date": "2026-10-28",
       "changes": [
+        {
+          "hash": "d3edb2a",
+          "date": "2026-10-28",
+          "type": "feat",
+          "scope": "rules",
+          "message": "add bulk mode update in action bar and IPv4/IPv6 CIDR subnet matching in search"
+        },
         {
           "hash": "dd380ce",
           "date": "2026-10-28",

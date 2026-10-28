@@ -1,5 +1,6 @@
 import { get, set, del, clear } from 'idb-keyval'
 import type { NormalizedAccessRule } from '../types/cloudflare'
+import { clearTrashRules } from '../store/useTrashStore'
 
 export const getCacheKey = (accountLevelOnly: boolean): string =>
   'cf-rules-cache-' + (accountLevelOnly ? 'account' : 'zones')
@@ -66,6 +67,7 @@ export async function clearAllCachedRules(): Promise<void> {
   try {
     await del(getCacheKey(true))
     await del(getCacheKey(false))
+    await clearTrashRules()
     await clear()
   } catch (error) {
     console.warn('[rulesCache] Error clearing IndexedDB:', error)

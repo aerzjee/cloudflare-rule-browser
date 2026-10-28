@@ -130,6 +130,12 @@ export interface TranslationDictionary {
     addRule: string
     cidrMatch: string
     cidrMatchTooltip: string
+    export: string
+    exportSelected: (count: number) => string
+    exportCsv: string
+    exportJson: string
+    trash: string
+    trashTooltip: (count: number) => string
   }
   noteEditor: {
     placeholder: string
@@ -215,6 +221,20 @@ export interface TranslationDictionary {
     btnClose: string
     btnCancel: string
     autoDetectBadge: string
+  }
+  trashModal: {
+    title: string
+    subtitle: string
+    itemCount: (count: number) => string
+    emptyTitle: string
+    emptyDesc: string
+    btnRestore: string
+    btnRestoreAll: string
+    btnRestoringAll: string
+    btnEmpty: string
+    btnClose: string
+    restoreErrorsHeading: string
+    errorGeneric: string
   }
   settings: {
     title: string
@@ -446,6 +466,13 @@ export const translations: Record<'en' | 'pl', TranslationDictionary> = {
       addRule: '+ Add Rule',
       cidrMatch: 'CIDR Match',
       cidrMatchTooltip: 'Included in CIDR subnet',
+      export: 'Export',
+      exportSelected: (count) => `Export (${count})`,
+      exportCsv: 'Export CSV',
+      exportJson: 'Export JSON',
+      trash: 'Trash',
+      trashTooltip: (count) =>
+        count === 1 ? '1 deleted rule in trash' : `${count} deleted rules in trash`,
     },
     noteEditor: {
       placeholder: 'Enter note (max 500 chars)...',
@@ -558,6 +585,21 @@ export const translations: Record<'en' | 'pl', TranslationDictionary> = {
       btnClose: 'Close',
       btnCancel: 'Cancel',
       autoDetectBadge: 'Auto-detected',
+    },
+    trashModal: {
+      title: 'Recently Deleted Rules',
+      subtitle: 'Locally cached deleted rules available for 1-click restore',
+      itemCount: (count) =>
+        `${count} ${count === 1 ? 'rule' : 'rules'} in trash (max 50)`,
+      emptyTitle: 'Trash is empty',
+      emptyDesc: 'Deleted access rules will appear here for easy recovery.',
+      btnRestore: 'Restore',
+      btnRestoreAll: 'Restore All',
+      btnRestoringAll: 'Restoring...',
+      btnEmpty: 'Empty Trash',
+      btnClose: 'Close',
+      restoreErrorsHeading: 'Errors while restoring rules:',
+      errorGeneric: 'Failed to restore rule in Cloudflare.',
     },
     settings: {
       title: 'Application Settings',
@@ -799,6 +841,15 @@ export const translations: Record<'en' | 'pl', TranslationDictionary> = {
       addRule: '+ Dodaj regułę',
       cidrMatch: 'W podsieci CIDR',
       cidrMatchTooltip: 'Zawiera się w podsieci CIDR',
+      export: 'Eksportuj',
+      exportSelected: (count) => `Eksportuj (${count})`,
+      exportCsv: 'Eksportuj CSV',
+      exportJson: 'Eksportuj JSON',
+      trash: 'Kosz',
+      trashTooltip: (count) =>
+        count === 1
+          ? '1 usunięta reguła w koszu'
+          : `${count} usuniętych reguł w koszu`,
     },
     noteEditor: {
       placeholder: 'Wpisz notatkę (max 500 znaków)...',
@@ -936,6 +987,27 @@ export const translations: Record<'en' | 'pl', TranslationDictionary> = {
       btnClose: 'Zamknij',
       btnCancel: 'Anuluj',
       autoDetectBadge: 'Automatyczne rozpoznanie',
+    },
+    trashModal: {
+      title: 'Ostatnio usunięte reguły',
+      subtitle:
+        'Lokalny kosz usuniętych reguł z możliwością ich szybkiego przywrócenia',
+      itemCount: (count) =>
+        count === 1
+          ? '1 reguła w koszu (max 50)'
+          : count < 5
+          ? `${count} reguły w koszu (max 50)`
+          : `${count} reguł w koszu (max 50)`,
+      emptyTitle: 'Kosz jest pusty',
+      emptyDesc:
+        'Usunięte reguły dostępu pojawią się tutaj i będą dostępne do przywrócenia.',
+      btnRestore: 'Przywróć',
+      btnRestoreAll: 'Przywróć wszystkie',
+      btnRestoringAll: 'Przywracanie...',
+      btnEmpty: 'Opróżnij kosz',
+      btnClose: 'Zamknij',
+      restoreErrorsHeading: 'Błędy podczas przywracania reguł:',
+      errorGeneric: 'Nie udało się przywrócić reguły w Cloudflare.',
     },
     settings: {
       title: 'Konfiguracja aplikacji',
